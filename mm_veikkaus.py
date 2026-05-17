@@ -667,7 +667,23 @@ if page == "Admin":
                 st.error("Väärä salasana")
         st.stop()  # Pysäytetään täällä jos ei ole admin
     
-    # ====================== OIKEA ADMIN-SISÄLTÖ ======================
+    # ====================== ADMIN ======================
+if page == "Admin":
+    st.subheader("🛠️ Admin-paneeli")
+    
+    ADMIN_PASSWORD = "admin123"   # <--- VAIHDA TÄHÄN OMA SALASANASI
+    
+    if not st.session_state.get("is_admin", False):
+        pw = st.text_input("Syötä admin-salasana", type="password", key="admin_pw")
+        if st.button("Kirjaudu adminiksi"):
+            if pw == ADMIN_PASSWORD:
+                st.session_state.is_admin = True
+                st.success("✅ Admin-oikeudet myönnetty")
+                st.rerun()
+            else:
+                st.error("Väärä salasana")
+        st.stop()
+    
     st.success("✅ Olet admin-tilassa")
     
     admin_choice = st.sidebar.selectbox(
@@ -676,24 +692,33 @@ if page == "Admin":
     )
     
     if admin_choice == "Lisää ottelun tulos":
-        st.write("### Ottelujen tulosten syöttö")
+        st.write("### Ottelujen tulosten syöttö / muokkaus")
+        
         for m in matches:
             match_id = str(m['id'])
             real = real_results.get("matches", {}).get(match_id)
-            col1, col2, col3 = st.columns([3,2,2])
+            
+            col1, col2, col3, col4 = st.columns([3, 1.5, 1.5, 1])
             with col1:
                 st.write(f"**{m['home']} — {m['away']}**")
             with col2:
                 h = st.number_input("Koti", 0, 20, value=real[0] if real else 0, key=f"h{match_id}")
             with col3:
                 a = st.number_input("Vieras", 0, 20, value=real[1] if real else 0, key=f"a{match_id}")
-            if st.button("Tallenna", key=f"btn{match_id}"):
-                if "matches" not in real_results:
-                    real_results["matches"] = {}
-                real_results["matches"][match_id] = [h, a]
-                save_json("real_results.json", real_results)
-                st.success("Tallennettu!")
-                st.rerun()
+            with col4:
+                if st.button("Tallenna", key=f"save{match_id}"):
+                    if "matches" not in real_results:
+                        real_results["matches"] = {}
+                    real_results["matches"][match_id] = [h, a]
+                    save_json("real_results.json", real_results)
+                    st.success(f"✅ Tallennettu: {m['home']} {h}–{a} {m['away']}")
+                    st.rerun()
+                
+                if real and st.button("🗑️ Poista tulos", key=f"del{match_id}"):
+                    real_results["matches"].pop(match_id, None)
+                    save_json("real_results.json", real_results)
+                    st.success("Tulos poistettu – kohde avattu uudelleen")
+                    st.rerun()
     
     elif admin_choice == "Lisää erikoiskohteen tulos":
         st.write("### Erikoiskohteiden tulosten syöttö")
@@ -701,17 +726,28 @@ if page == "Admin":
             bet_id = bet["id"]
             real_val = real_results.get("special", {}).get(bet_id)
             question = bet.get('question') or bet.get('text', bet_id)
+            
             st.write(f"**{question}**")
             new_val = st.text_input("Oikea vastaus", value=real_val or "", key=f"e{bet_id}")
-            if st.button("Tallenna", key=f"save{bet_id}"):
-                if "special" not in real_results:
-                    real_results["special"] = {}
-                real_results["special"][bet_id] = new_val
-                save_json("real_results.json", real_results)
-                st.success("Tallennettu!")
-                st.rerun()
+            
+            col1, col2 = st.columns([1,1])
+            with col1:
+                if st.button("Tallenna", key=f"save{bet_id}"):
+                    if "special" not in real_results:
+                        real_results["special"] = {}
+                    real_results["special"][bet_id] = new_val.strip()
+                    save_json("real_results.json", real_results)
+                    st.success("✅ Tallennus onnistui!")
+                    st.rerun()
+            with col2:
+                if real_val and st.button("Poista tulos", key=f"del_spec{bet_id}"):
+                    real_results["special"].pop(bet_id, None)
+                    save_json("real_results.json", real_results)
+                    st.success("Tulos poistettu")
+                    st.rerun()
     
     elif admin_choice == "Hallinnoi käyttäjiä":
+        # (sama kuin aiemmin)
         st.write("### 👥 Hallinnoi käyttäjiä")
         if not users:
             st.info("Ei käyttäjiä")
@@ -721,7 +757,7 @@ if page == "Admin":
                 with col1:
                     st.write(f"**{user}**")
                 with col2:
-                    if st.button("Poista", key=f"del{user}"):
+                    if st.button("Poista", key=f"del_user{user}"):
                         users.pop(user, None)
                         predictions.pop(user, None)
                         save_json("users.json", users)
