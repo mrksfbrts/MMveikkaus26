@@ -613,36 +613,39 @@ if page == "Omat veikkaukset":
 
 # ====================== KAIKKIEN VEIKKAUKSET ======================
 if page == "Kaikkien veikkaukset":
-    st.subheader("KAIKKIEN VEIKKAUKSET")
+    st.subheader("Kaikkien veikkaukset")
+    st.caption("Vain lukitut ottelut pitäisi näkyä tässä")
     
-    st.divider()  # <-- Viiva otsikon ja ensimmäisen ottelun väliin
+    locked_matches = real_results.get("matches", {})
     
+    st.info(f"**Debug-tieto:** Lukittuja otteluita yhteensä = **{len(locked_matches)}**")
+    
+    if len(locked_matches) == 0:
+        st.warning("Admin ei ole vielä syöttänyt yhtään tulosta. Tässä ei pitäisi näkyä yhtään veikkausta.")
+        st.stop()
+    
+    shown = 0
     for m in matches:
         match_id = str(m['id'])
-        real = real_results.get("matches", {}).get(match_id)
+        real = locked_matches.get(match_id)
         
-        # Ottelu isommalla fontilla
-        st.markdown(f"**{m['home']} — {m['away']}**  ({m.get('group', '')})", unsafe_allow_html=True)
+        if real is None:
+            continue  # Ohitetaan lukitsemattomat ottelut
         
-        if real:
-            st.markdown(f"**Toteutunut tulos:** {real[0]}–{real[1]}", unsafe_allow_html=True)
+        shown += 1
+        st.markdown(f"### {m['home']} — {m['away']} ({m.get('group', '')})")
+        st.success(f"Toteutunut tulos: **{real[0]}–{real[1]}**")
         
-        # Pelaajien veikkaukset
-        has_predictions = False
-        for u in users.keys():
+        for u in sorted(users.keys()):
             pred = predictions.get(u, {}).get(match_id)
             if pred:
-                has_predictions = True
-                if real:
-                    pts = calculate_match_points(pred, real)
-                    st.markdown(f"**{u}**: {pred[0]}–{pred[1]}  <span style='color:#00ff9d'>({pts}p)</span>", unsafe_allow_html=True)
-                else:
-                    st.markdown(f"**{u}**: {pred[0]}–{pred[1]}", unsafe_allow_html=True)
+                pts = calculate_match_points(pred, real)
+                st.markdown(f"**{u}**: {pred[0]}–{pred[1]} <span style='color:#00ff9d'>(+{pts} pistettä)</span>", unsafe_allow_html=True)
         
-        if not has_predictions:
-            st.caption("Ei vielä veikkauksia tähän otteluun.")
-        
-        st.divider()  # Viiva otteluiden väliin
+        st.divider()
+    
+    if shown == 0:
+        st.info("Ei vielä yhtään lukittua ottelua.")
 
 # ====================== ADMIN ======================
 if page == "Admin":
