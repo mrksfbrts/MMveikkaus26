@@ -15,7 +15,7 @@ st.markdown("""
         .etusivu_text { 
             text-align: center; 
             font-size: 5.5rem; 
-            font-weight: 900; 
+            font-weight: 00; 
             color: #00ff9d; 
             text-shadow: 0 0 40px rgba(0, 255, 157, 0.7);
             margin: 80px 0 20px 0;
@@ -255,7 +255,7 @@ if page == "Etusivu":
         <style>
             .etusivu_text { 
                 text-align: center; 
-                font-size: 8.2rem; 
+                font-size: 7.2rem; 
                 font-weight: 900; 
                 color: #00ff9d; 
                 text-shadow: 0 0 50px rgba(0, 255, 157, 0.8);
@@ -290,12 +290,7 @@ if page == "Etusivu":
         </style>
     """, unsafe_allow_html=True)
 
-    # Sikin sokin maat taustalle
-    st.markdown("""
-        <div class="background-countries">
-            Argentiina Brasilia Ranska Saksa Espanja Englanti Portugali Hollanti Belgia Italia Uruguay Kolumbia Meksiko USA Japani Etelä-Korea Australia Marokko Senegal Norsunluurannikko Ghana Kroatia Sveitsi Ruotsi Tanska Puola Algeria Egypti Nigeria Tunisia Saudi-Arabia Qatar Iran Irak Jordania Panama Kanada Paraguay Ecuador Peru Chile Venezuela Bolivia
-        </div>
-    """, unsafe_allow_html=True)
+   
 
     # Varsinainen sisältö
     st.markdown('<div class="etusivu_text">MM26</div>', unsafe_allow_html=True)
