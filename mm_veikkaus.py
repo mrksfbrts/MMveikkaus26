@@ -613,12 +613,11 @@ if page == "Omat veikkaukset":
 
 # ====================== KAIKKIEN VEIKKAUKSET ======================
 if page == "Kaikkien veikkaukset":
-    st.subheader("Kaikkien veikkaukset")
-    st.caption("Vain lukitut ottelut pitäisi näkyä tässä")
+    st.subheader("KAIKKIEN VEIKKAUKSET")
+    st.caption("Vain pelatut ottelut näkyvät tällä sivulla")
     
     locked_matches = real_results.get("matches", {})
     
-    st.info(f"**Debug-tieto:** Lukittuja otteluita yhteensä = **{len(locked_matches)}**")
     
     if len(locked_matches) == 0:
         st.warning("Admin ei ole vielä syöttänyt yhtään tulosta. Tässä ei pitäisi näkyä yhtään veikkausta.")
