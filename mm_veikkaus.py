@@ -651,32 +651,67 @@ if page == "Kaikkien veikkaukset":
 
 # ====================== ADMIN ======================
 if page == "Admin":
-    pw = st.text_input("Admin-salasana", type="password")
-    if pw == "admin123":
-        st.success("✅ Admin auki")
-        tab1, tab2 = st.tabs(["Ottelutulokset", "Erikoiskohteet"])
-        with tab1:
-            for m in matches:
-                st.write(f"{m['home']} — {m['away']}")
-                c1, c2 = st.columns(2)
-                with c1: h = st.number_input("Koti", min_value=0, key=f"rh_{m['id']}")
-                with c2: a = st.number_input("Vieras", min_value=0, key=f"ra_{m['id']}")
-                if st.button("Tallenna tulos", key=f"save_match_{m['id']}"):
-                    if "matches" not in real_results:
-                        real_results["matches"] = {}
-                    real_results["matches"][str(m['id'])] = (h, a)
-                    save_json(RESULTS_FILE, real_results)
-                st.divider()
-        with tab2:
-            for bet in special_bets:
-                st.write(f"**{bet['name']}**")
-                current = real_results.get("special", {}).get(bet["id"], "")
-                val = st.text_input("Hyväksytyt vastaukset (pilkulla eroteltuna)", value=current, key=f"admin_{bet['id']}")
-                if st.button("Tallenna", key=f"save_admin_{bet['id']}"):
-                    if "special" not in real_results:
-                        real_results["special"] = {}
-                    real_results["special"][bet["id"]] = val
-                    save_json(RESULTS_FILE, real_results)
-                    st.success("Tallennettu!")
-                st.divider()
-
+    st.subheader("🛠️ Admin-paneeli")
+    
+    admin_choice = st.sidebar.selectbox(
+        "Valitse toiminto",
+        ["Lisää ottelun tulos", "Lisää erikoiskohteen tulos", "Hallinnoi käyttäjiä"]
+    )
+    
+    if admin_choice == "Lisää ottelun tulos":
+        # Vanha ottelujen tulosten syöttö säilyy ennallaan
+        st.write("### Ottelujen tulosten syöttö")
+        for m in matches:
+            match_id = str(m['id'])
+            real = real_results.get("matches", {}).get(match_id)
+            col1, col2, col3 = st.columns([3, 2, 2])
+            with col1:
+                st.write(f"**{m['home']} — {m['away']}**")
+            with col2:
+                home_score = st.number_input("Koti", min_value=0, max_value=20, value=real[0] if real else 0, key=f"h_{match_id}")
+            with col3:
+                away_score = st.number_input("Vieras", min_value=0, max_value=20, value=real[1] if real else 0, key=f"a_{match_id}")
+            if st.button("Tallenna tulos", key=f"save_{match_id}"):
+                if "matches" not in real_results:
+                    real_results["matches"] = {}
+                real_results["matches"][match_id] = [home_score, away_score]
+                save_json("real_results.json", real_results)
+                st.success(f"Tallennettu: {m['home']} {home_score}–{away_score} {m['away']}")
+                st.rerun()
+    
+    elif admin_choice == "Lisää erikoiskohteen tulos":
+        # Vanha erikoiskohteiden osio säilyy
+        st.write("### Erikoiskohteiden tulosten syöttö")
+        for bet in special_bets:
+            bet_id = bet["id"]
+            real_val = real_results.get("special", {}).get(bet_id)
+            st.write(f"**{bet['question']}**")
+            new_val = st.text_input("Oikea vastaus", value=real_val if real_val else "", key=f"spec_{bet_id}")
+            if st.button("Tallenna", key=f"save_spec_{bet_id}"):
+                if "special" not in real_results:
+                    real_results["special"] = {}
+                real_results["special"][bet_id] = new_val
+                save_json("real_results.json", real_results)
+                st.success("Tallennettu!")
+                st.rerun()
+    
+    elif admin_choice == "Hallinnoi käyttäjiä":
+        st.write("### 👥 Hallinnoi käyttäjiä")
+        
+        if not users:
+            st.info("Ei rekisteröityneitä käyttäjiä.")
+        else:
+            for username in list(users.keys()):
+                col1, col2 = st.columns([4, 1])
+                with col1:
+                    st.write(f"**{username}**")
+                with col2:
+                    if st.button("Poista", key=f"del_{username}"):
+                        if username in users:
+                            del users[username]
+                        if username in predictions:
+                            del predictions[username]
+                        save_json("users.json", users)
+                        save_json("predictions.json", predictions)
+                        st.success(f"Käyttäjä {username} poistettu!")
+                        st.rerun()
