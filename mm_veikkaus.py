@@ -653,6 +653,23 @@ if page == "Kaikkien veikkaukset":
 if page == "Admin":
     st.subheader("🛠️ Admin-paneeli")
     
+    # Admin-salasana (muuta tätä halutessasi)
+    ADMIN_PASSWORD = "admin123"   # <--- VAIHDA TÄHÄN OMA SALASANASI
+    
+    if not st.session_state.get("is_admin", False):
+        pw = st.text_input("Syötä admin-salasana", type="password", key="admin_pw_input")
+        if st.button("Avaa Admin-paneeli"):
+            if pw == ADMIN_PASSWORD:
+                st.session_state.is_admin = True
+                st.success("Admin-oikeudet myönnetty!")
+                st.rerun()
+            else:
+                st.error("Väärä salasana")
+        st.stop()  # Pysäytetään täällä jos ei ole admin
+    
+    # ====================== OIKEA ADMIN-SISÄLTÖ ======================
+    st.success("✅ Olet admin-tilassa")
+    
     admin_choice = st.sidebar.selectbox(
         "Valitse toiminto",
         ["Lisää ottelun tulos", "Lisää erikoiskohteen tulos", "Hallinnoi käyttäjiä"]
@@ -663,23 +680,19 @@ if page == "Admin":
         for m in matches:
             match_id = str(m['id'])
             real = real_results.get("matches", {}).get(match_id)
-            
-            col1, col2, col3 = st.columns([3, 2, 2])
+            col1, col2, col3 = st.columns([3,2,2])
             with col1:
                 st.write(f"**{m['home']} — {m['away']}**")
             with col2:
-                home_score = st.number_input("Koti", min_value=0, max_value=20, 
-                                           value=real[0] if real else 0, key=f"h_{match_id}")
+                h = st.number_input("Koti", 0, 20, value=real[0] if real else 0, key=f"h{match_id}")
             with col3:
-                away_score = st.number_input("Vieras", min_value=0, max_value=20, 
-                                           value=real[1] if real else 0, key=f"a_{match_id}")
-            
-            if st.button("Tallenna tulos", key=f"save_{match_id}"):
+                a = st.number_input("Vieras", 0, 20, value=real[1] if real else 0, key=f"a{match_id}")
+            if st.button("Tallenna", key=f"btn{match_id}"):
                 if "matches" not in real_results:
                     real_results["matches"] = {}
-                real_results["matches"][match_id] = [home_score, away_score]
+                real_results["matches"][match_id] = [h, a]
                 save_json("real_results.json", real_results)
-                st.success(f"Tallennettu: {m['home']} {home_score}–{away_score} {m['away']}")
+                st.success("Tallennettu!")
                 st.rerun()
     
     elif admin_choice == "Lisää erikoiskohteen tulos":
@@ -687,41 +700,31 @@ if page == "Admin":
         for bet in special_bets:
             bet_id = bet["id"]
             real_val = real_results.get("special", {}).get(bet_id)
-            
-            # Turvallinen otsikko
-            question = bet.get('question', bet.get('text', f"Erikoiskohde {bet_id}"))
+            question = bet.get('question') or bet.get('text', bet_id)
             st.write(f"**{question}**")
-            
-            new_val = st.text_input("Oikea vastaus", 
-                                  value=real_val if real_val is not None else "", 
-                                  key=f"spec_{bet_id}")
-            
-            if st.button("Tallenna", key=f"save_spec_{bet_id}"):
+            new_val = st.text_input("Oikea vastaus", value=real_val or "", key=f"e{bet_id}")
+            if st.button("Tallenna", key=f"save{bet_id}"):
                 if "special" not in real_results:
                     real_results["special"] = {}
-                real_results["special"][bet_id] = new_val.strip()
+                real_results["special"][bet_id] = new_val
                 save_json("real_results.json", real_results)
                 st.success("Tallennettu!")
                 st.rerun()
     
     elif admin_choice == "Hallinnoi käyttäjiä":
         st.write("### 👥 Hallinnoi käyttäjiä")
-        
         if not users:
-            st.info("Ei vielä rekisteröityneitä käyttäjiä.")
+            st.info("Ei käyttäjiä")
         else:
-            st.caption(f"Rekisteröityneitä käyttäjiä: {len(users)}")
-            for username in list(users.keys()):
-                col1, col2 = st.columns([4, 1])
+            for user in list(users.keys()):
+                col1, col2 = st.columns([4,1])
                 with col1:
-                    st.write(f"**{username}**")
+                    st.write(f"**{user}**")
                 with col2:
-                    if st.button("🗑️ Poista", key=f"del_{username}", type="secondary"):
-                        if username in users:
-                            del users[username]
-                        if username in predictions:
-                            del predictions[username]
+                    if st.button("Poista", key=f"del{user}"):
+                        users.pop(user, None)
+                        predictions.pop(user, None)
                         save_json("users.json", users)
                         save_json("predictions.json", predictions)
-                        st.success(f"Käyttäjä **{username}** poistettu!")
+                        st.success(f"{user} poistettu")
                         st.rerun()
