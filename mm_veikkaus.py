@@ -761,7 +761,7 @@ if page == "Kaikkien veikkaukset":
                             pts = bet.get("points", 6) if user_str in real_list else 0
                             
                             if pts > 0:
-                                st.markdown(f"**{u}**: {user_pred} <span style='color:#00ff9d'>(+{pts} pistettä)</span>", unsafe_allow_html=True)
+                                st.markdown(f"**{u}**: {user_pred} <span style='color:#00ff9d'>(+{pts})</span>", unsafe_allow_html=True)
                             else:
                                 st.markdown(f"**{u}**: {user_pred}", unsafe_allow_html=True)
                     
