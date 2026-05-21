@@ -2,7 +2,7 @@ name: Keep Streamlit App Awake
 
 on:
   schedule:
-    - cron: '0 */6 * * *'     # Joka 6. tunti
+    - cron: '0 */3 * * *'     # Joka 3. tunti
   workflow_dispatch:          # Mahdollistaa manuaalisen käynnistyksen
 
 jobs:
