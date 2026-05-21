@@ -1,0 +1,16 @@
+name: Keep Streamlit App Awake
+
+on:
+  schedule:
+    - cron: '0 */6 * * *'     # Joka 6. tunti
+  workflow_dispatch:          # Mahdollistaa manuaalisen käynnistyksen
+
+jobs:
+  keep-alive:
+    runs-on: ubuntu-latest
+    
+    steps:
+      - name: Herätä sovellus
+        run: |
+          curl -I -L -s "https://haamuilua.streamlit.app/" > /dev/null || true
+          echo "Sovellus herätetty klo $(date)"
