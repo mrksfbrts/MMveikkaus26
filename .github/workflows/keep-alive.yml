@@ -2,8 +2,8 @@ name: Keep Streamlit App Awake
 
 on:
   schedule:
-    - cron: '0 */3 * * *'     # Joka 3. tunti
-  workflow_dispatch:          # Mahdollistaa manuaalisen käynnistyksen
+    - cron: '0 */2 * * *'      # Joka 2. tunti
+  workflow_dispatch:
 
 jobs:
   keep-alive:
@@ -12,5 +12,6 @@ jobs:
     steps:
       - name: Herätä sovellus
         run: |
-          curl -I -L -s "https://haamuilua.streamlit.app/" > /dev/null || true
-          echo "Sovellus herätetty klo $(date)"
+          echo "🟢 Herätetään sovellus klo $(date -u)"
+          curl -I -L -s -f "https://haamuilua.streamlit.app/" > /dev/null || true
+          echo "✅ Sovellus herätetty"
