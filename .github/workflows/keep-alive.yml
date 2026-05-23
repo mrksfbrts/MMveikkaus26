@@ -14,4 +14,4 @@ jobs:
         run: |
           echo "🟢 Herätetään sovellus klo $(date -u)"
           curl -I -L -s -f "https://haamuilua.streamlit.app/" > /dev/null || true
-          echo "✅ Sovellus herätetty"
+          echo "✅ Sovellus herätetty onnistuneesti"
