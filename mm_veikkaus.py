@@ -498,54 +498,55 @@ if page == "Veikkaa erikoiskohteita":
         st.warning("Kirjaudu ensin sisään!")
     else:
         user = st.session_state.logged_in_user
+        real_special = real_results.get("special", {})
         
-        # Tarkistetaan countdown ensimmäisestä ottelusta
-        countdown_info = get_special_bets_countdown()
-        if isinstance(countdown_info, tuple):
-            countdown_str, is_open = countdown_info
-        else:
-            countdown_str, is_open = "Aika ei saatavilla", True
-        
-        if not is_open:
+        # Tarkistetaan onko erikoiskohteissa YHTÄÄN lukittua tulosta
+        if real_special and len(real_special) > 0:
             st.success("✅ Erikoiskohteet ovat lukittu.")
             st.info("Voit tarkastella veikkauksiasi 'Omat veikkaukset' -sivulta.")
         else:
-            st.subheader("Veikkaa erikoiskohteita")
-            st.markdown(f"🟢 **{countdown_str}**")
-            st.caption("Erikoiskohteet sulkeutuvat 15 minuuttia ennen ensimmäisen ottelun alkua.")
+            st.subheader("🏆 Veikkaa erikoiskohteita")
+            st.caption("Erikoiskohteet ovat avoinna")
             
             user_special = predictions.get(user, {}).get("special", {})
             
             for bet in special_bets:
-                pred_value = user_special.get(bet["id"])
-                st.markdown(f"**{bet.get('name') or bet.get('question')}** ({bet.get('points', 6)} pistettä)")
+                bet_id = bet["id"]
+                pred_value = user_special.get(bet_id)
+                real_value = real_special.get(bet_id)
                 
-                # Veikkauslomake
-                if bet["id"] in ["most_goals", "most_cards", "champion"]:
-                    value = st.selectbox("Valitse maa", options=countries, 
-                                       key=f"spec_{bet['id']}", label_visibility="collapsed")
-                elif bet["id"] == "top_scorer":
-                    value = st.text_input("Pelaajan nimi", key=f"spec_{bet['id']}", label_visibility="collapsed")
-                elif bet["id"] == "top_scorer_goals":
-                    value = st.selectbox("Maalimäärä", options=list(range(1,21)), 
-                                       key=f"spec_{bet['id']}", label_visibility="collapsed")
-                elif bet["id"].startswith("group_"):
-                    group_letter = bet["id"].split("_")[1].upper()
-                    group_matches = [m for m in matches if m.get("group") == group_letter]
-                    group_teams = sorted(set([m["home"] for m in group_matches] + [m["away"] for m in group_matches]))
-                    value = st.selectbox("Lohkovoittaja", options=group_teams, 
-                                       key=f"spec_{bet['id']}", label_visibility="collapsed")
+                question = bet.get('name') or bet.get('question') or bet.get('text', bet_id)
+                st.markdown(f"**{question}** ({bet.get('points', 6)} pistettä)")
+                
+                if real_value:
+                    st.success(f"Toteutunut vastaus: **{real_value}**")
                 else:
-                    value = st.text_input("Vastaus", key=f"spec_{bet['id']}", label_visibility="collapsed")
-                
-                if st.button("Tallenna veikkaus", key=f"save_{bet['id']}", use_container_width=True):
-                    if user not in predictions:
-                        predictions[user] = {"special": {}}
-                    if "special" not in predictions[user]:
-                        predictions[user]["special"] = {}
-                    predictions[user]["special"][bet["id"]] = str(value).strip()
-                    save_json(PREDICTIONS_FILE, predictions)
-                    st.success("Veikkaus tallennettu!")
+                    # Veikkauslomake
+                    if bet["id"] in ["most_goals", "most_cards", "champion"]:
+                        value = st.selectbox("Valitse maa", options=countries, 
+                                           key=f"spec_{bet_id}", label_visibility="collapsed")
+                    elif bet["id"] == "top_scorer":
+                        value = st.text_input("Pelaajan nimi", key=f"spec_{bet_id}", label_visibility="collapsed")
+                    elif bet["id"] == "top_scorer_goals":
+                        value = st.selectbox("Maalimäärä", options=list(range(1,21)), 
+                                           key=f"spec_{bet_id}", label_visibility="collapsed")
+                    elif bet["id"].startswith("group_"):
+                        group_letter = bet["id"].split("_")[1].upper()
+                        group_matches = [m for m in matches if m.get("group") == group_letter]
+                        group_teams = sorted(set([m["home"] for m in group_matches] + [m["away"] for m in group_matches]))
+                        value = st.selectbox("Lohkovoittaja", options=group_teams, 
+                                           key=f"spec_{bet_id}", label_visibility="collapsed")
+                    else:
+                        value = st.text_input("Vastaus", key=f"spec_{bet_id}", label_visibility="collapsed")
+                    
+                    if st.button("Tallenna veikkaus", key=f"save_spec_{bet_id}", use_container_width=True):
+                        if user not in predictions:
+                            predictions[user] = {"special": {}}
+                        if "special" not in predictions[user]:
+                            predictions[user]["special"] = {}
+                        predictions[user]["special"][bet_id] = str(value).strip()
+                        save_json(PREDICTIONS_FILE, predictions)
+                        st.success("✅ Veikkaus tallennettu!")
                 
                 st.divider()
 
