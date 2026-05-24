@@ -591,6 +591,7 @@ if page == "Kaikkien veikkaukset":
 if page == "Säännöt":
     st.title("Säännöt ja pisteytysjärjestelmä")
     st.markdown("---")
+    
     st.subheader("Otteluveikkaukset")
     st.markdown("""
     Pisteitä saa ainoastaan, kun on veikannut oikeaa tulosta (1X2). Lopullisen veikkauskohteen pistemäärän määrittelee se, kuinka lähelle oikeaa tulosta veikkasit. 
@@ -607,13 +608,16 @@ if page == "Säännöt":
         ],
         "Pisteet": ["**8**", "**6**", "**5**", "**4**", "**3**", "**0**"]
     }
+    
     df = pd.DataFrame(data)
     st.table(df.style.set_properties(**{'text-align': 'left'}))
     
     st.markdown("---")
     st.subheader("Erikoiskohteet")
     st.write("**Jokaiselle erikoiskohteelle on määritelty omat pistemääränsä oikein veikatessa (3-10).**")
-    st.caption("Yksittäinen veikkauskohde sulkeutuu 15 minuuttia ennen ottelun alkua...")
+    st.caption("""
+    Yksittäinen veikkauskohde sulkeutuu aina 15 minuuttia ennen pelin alkamista...
+    """)
 
 # ====================== VEIKKAA OTTELUITA ======================
 if page == "Veikkaa otteluita":
