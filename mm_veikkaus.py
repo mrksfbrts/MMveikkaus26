@@ -593,10 +593,12 @@ if page == "Säännöt":
     st.markdown("---")
     
     st.subheader("Otteluveikkaukset")
+    
     st.markdown("""
     Pisteitä saa ainoastaan, kun on veikannut oikeaa tulosta (1X2). Lopullisen veikkauskohteen pistemäärän määrittelee se, kuinka lähelle oikeaa tulosta veikkasit. 
     """)
     
+    # Pistetaulukko
     data = {
         "Veikkauksesi": [
             "Täysin oikea tulos",
@@ -613,10 +615,13 @@ if page == "Säännöt":
     st.table(df.style.set_properties(**{'text-align': 'left'}))
     
     st.markdown("---")
+    
     st.subheader("Erikoiskohteet")
     st.write("**Jokaiselle erikoiskohteelle on määritelty omat pistemääränsä oikein veikatessa (3-10).**")
+    
+    st.markdown("---")
     st.caption("""
-    Yksittäinen veikkauskohde sulkeutuu aina 15 minuuttia ennen pelin alkamista...
+    Yksittäinen veikkauskohde/ottelu sulkeutuu aina 15 minuuttia ennen pelin alkamista. Voit muokata omaa veikkaustasi siihen asti aivan vapaasti...
     """)
 
 # ====================== VEIKKAA OTTELUITA ======================
