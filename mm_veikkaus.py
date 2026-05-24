@@ -621,7 +621,7 @@ if page == "Säännöt":
     
     st.markdown("---")
     st.caption("""
-    Yksittäinen veikkauskohde/ottelu sulkeutuu aina 15 minuuttia ennen pelin alkamista. Voit muokata omaa veikkaustasi siihen asti aivan vapaasti...
+    Yksittäinen veikkauskohde/ottelu sulkeutuu aina 15 minuuttia ennen pelin alkamista...
     """)
 
 # ====================== VEIKKAA OTTELUITA ======================
