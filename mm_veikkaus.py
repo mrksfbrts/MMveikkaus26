@@ -477,7 +477,7 @@ if page == "Kirjaudu / Rekisteröidy":
                     else:
                         st.error("Väärä käyttäjänimi tai salasana")
         
-               with tab2:  # Rekisteröityminen
+        with tab2:  # Rekisteröityminen
             st.subheader("Luo uusi tunnus")
             col = st.columns([1, 2, 1])[1]
             with col:
@@ -493,7 +493,7 @@ if page == "Kirjaudu / Rekisteröidy":
                     elif new_user in users:
                         st.error("Käyttäjänimi on jo käytössä")
                     else:
-                        # Korjattu tallennus SQLiteen
+                        # SQLite-tallennus
                         save_user(new_user, hash_password(new_pass))
                         users[new_user] = hash_password(new_pass)
                         st.success("Tunnus luotu onnistuneesti! Voit nyt kirjautua sisään.")
