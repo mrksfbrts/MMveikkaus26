@@ -581,7 +581,7 @@ if page == "Veikkaa otteluita":
                         with col_away:
                             away_score = st.number_input("", 0, 10, 0, key=f"a_{match_id}")
                         
-                        if st.button("Tallenna veikkaus", key=f"save_{match_id}", use_container_width=True):
+                                              if st.button("Tallenna veikkaus", key=f"save_{match_id}", use_container_width=True):
                             save_prediction(user, match_id, home_score, away_score)
                             st.success(f"Tallennettu: {m['home']} {home_score}–{away_score} {m['away']}")
                             st.rerun()
