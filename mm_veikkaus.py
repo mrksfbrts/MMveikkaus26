@@ -493,10 +493,10 @@ if page == "Kirjaudu / Rekisteröidy":
                     elif new_user in users:
                         st.error("Käyttäjänimi on jo käytössä")
                  else:
-    save_user(new_user, hash_password(new_pass))
-    users[new_user] = hash_password(new_pass)
-    st.success("Tunnus luotu onnistuneesti! Voit nyt kirjautua sisään.")
-
+                        save_user(new_user, hash_password(new_pass))
+                        users[new_user] = hash_password(new_pass)
+                        st.success("Tunnus luotu onnistuneesti! Voit nyt kirjautua sisään.")
+                        st.rerun()
 
 # ====================== SÄÄNNÖT ======================
 if page == "Säännöt":
