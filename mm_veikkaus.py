@@ -288,6 +288,32 @@ if "logged_in_user" not in st.session_state:
 users = load_users()
 real_results = load_real_results()
 
+# ====================== LATAA PREDICTIONS ======================
+def load_all_predictions():
+    conn = get_db()
+    df = pd.read_sql_query("SELECT * FROM predictions", conn)
+    conn.close()
+    
+    predictions = {}
+    for _, row in df.iterrows():
+        username = row['username']
+        if username not in predictions:
+            predictions[username] = {}
+        
+        match_id = row['match_id']
+        predictions[username][match_id] = [row['home_goals'], row['away_goals']]
+        
+        # Erikoiskohteet
+        try:
+            special = json.loads(row['special_bets'])
+            if special and special != {}:
+                predictions[username]["special"] = special
+        except:
+            pass
+    return predictions
+
+predictions = load_all_predictions()
+
 st.toast("✅ Tietokanta ja Persistent Disk käytössä", icon="🔒")
 
 # ====================== FUNKTIOT ======================
@@ -466,10 +492,10 @@ if page == "Kirjaudu / Rekisteröidy":
                         st.error("Salasanat eivät täsmää")
                     elif new_user in users:
                         st.error("Käyttäjänimi on jo käytössä")
-                    else:
-                        users[new_user] = hash_password(new_pass)
-                        save_json(USERS_FILE, users)
-                        st.success("Tunnus luotu onnistuneesti! Voit nyt kirjautua sisään.")
+                 else:
+    save_user(new_user, hash_password(new_pass))
+    users[new_user] = hash_password(new_pass)
+    st.success("Tunnus luotu onnistuneesti! Voit nyt kirjautua sisään.")
 
 
 # ====================== SÄÄNNÖT ======================
@@ -555,10 +581,9 @@ if page == "Veikkaa otteluita":
                             away_score = st.number_input("", 0, 10, 0, key=f"a_{match_id}")
                         
                         if st.button("Tallenna veikkaus", key=f"save_{match_id}", use_container_width=True):
-                            if user not in predictions:
-                                predictions[user] = {}
-                            predictions[user][match_id] = [home_score, away_score]
-                            save_json(PREDICTIONS_FILE, predictions)
+    save_prediction(user, match_id, home_score, away_score)
+    st.success(f"Tallennettu: {m['home']} {home_score}–{away_score} {m['away']}")
+    st.rerun()
                             st.success(f"Tallennettu: {m['home']} {home_score}–{away_score} {m['away']}")
                         
                         st.divider()
@@ -611,13 +636,17 @@ if page == "Veikkaa erikoiskohteita":
                         value = st.text_input("Vastaus", key=f"spec_{bet_id}", label_visibility="collapsed")
                     
                     if st.button("Tallenna veikkaus", key=f"save_spec_{bet_id}", use_container_width=True):
-                        if user not in predictions:
-                            predictions[user] = {"special": {}}
-                        if "special" not in predictions[user]:
-                            predictions[user]["special"] = {}
-                        predictions[user]["special"][bet_id] = str(value).strip()
-                        save_json(PREDICTIONS_FILE, predictions)
-                        st.success("✅ Veikkaus tallennettu!")
+    if user not in predictions:
+        predictions[user] = {"special": {}}
+    if "special" not in predictions[user]:
+        predictions[user]["special"] = {}
+    predictions[user]["special"][bet_id] = str(value).strip()
+    
+    # Tallenna SQLiteen
+    save_prediction(user, "special", 0, 0, predictions[user]["special"])
+    
+    st.success("✅ Veikkaus tallennettu!")
+    st.rerun()
                 
                 st.divider()
 
