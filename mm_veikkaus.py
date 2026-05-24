@@ -11,8 +11,6 @@ st.set_page_config(
     page_icon="⚽",
     layout="wide",
     initial_sidebar_state="expanded"
-
-    
 )
 
 st.markdown("""
@@ -61,12 +59,6 @@ st.markdown("""
         transform: translateY(-2px);
     }
     
-    /* Taulukot */
-    .stTable, .stDataFrame {
-        border-radius: 0px;
-        overflow: hidden;
-    }
-    
     /* Etusivun iso otsikko */
     .etusivu_text {
         text-align: center;
@@ -79,11 +71,6 @@ st.markdown("""
         text-shadow: 0 0 60px rgba(0, 255, 157, 0.5);
     }
     
-    /* Viimeistely */
-    .stMarkdown, .stText {
-        line-height: 1.7;
-    }
-    
     /* Mobiili-parannus */
     @media (max-width: 768px) {
         .etusivu_text { font-size: 3.8rem; margin: 40px 0 15px 0; }
@@ -93,9 +80,8 @@ st.markdown("""
 </style>
 """, unsafe_allow_html=True)
 
-
 # ====================== PERSISTENT DISK (Render) ======================
-DATA_DIR = "/data"   # Renderin Persistent Disk käyttää tätä polkua
+DATA_DIR = "/data"
 DB_PATH = os.path.join(DATA_DIR, "veikkaus.db")
 os.makedirs(DATA_DIR, exist_ok=True)
 
@@ -105,24 +91,9 @@ def get_db():
 def init_db():
     conn = get_db()
     c = conn.cursor()
-    
-    c.execute('''CREATE TABLE IF NOT EXISTS users (
-                    username TEXT PRIMARY KEY, password_hash TEXT)''')
-    
-    c.execute('''CREATE TABLE IF NOT EXISTS predictions (
-                    username TEXT, 
-                    match_id TEXT, 
-                    home_goals INTEGER, 
-                    away_goals INTEGER,
-                    special_bets TEXT DEFAULT '{}',
-                    PRIMARY KEY (username, match_id))''')
-    
-    c.execute('''CREATE TABLE IF NOT EXISTS real_results (
-                    type TEXT, 
-                    id TEXT, 
-                    result TEXT,
-                    PRIMARY KEY (type, id))''')
-    
+    c.execute('''CREATE TABLE IF NOT EXISTS users (username TEXT PRIMARY KEY, password_hash TEXT)''')
+    c.execute('''CREATE TABLE IF NOT EXISTS predictions (username TEXT, match_id TEXT, home_goals INTEGER, away_goals INTEGER, special_bets TEXT DEFAULT '{}', PRIMARY KEY (username, match_id))''')
+    c.execute('''CREATE TABLE IF NOT EXISTS real_results (type TEXT, id TEXT, result TEXT, PRIMARY KEY (type, id))''')
     conn.commit()
     conn.close()
 
@@ -156,6 +127,24 @@ def save_prediction(username, match_id, home_goals, away_goals, special=None):
     conn.commit()
     conn.close()
 
+def load_all_predictions():
+    conn = get_db()
+    df = pd.read_sql_query("SELECT * FROM predictions", conn)
+    conn.close()
+    predictions = {}
+    for _, row in df.iterrows():
+        username = row['username']
+        if username not in predictions:
+            predictions[username] = {}
+        predictions[username][row['match_id']] = [row['home_goals'], row['away_goals']]
+        try:
+            special = json.loads(row['special_bets'])
+            if special and special != {}:
+                predictions[username]["special"] = special
+        except:
+            pass
+    return predictions
+
 def load_real_results():
     conn = get_db()
     df = pd.read_sql_query("SELECT * FROM real_results", conn)
@@ -172,16 +161,7 @@ def load_real_results():
             pass
     return real
 
-def save_real_result(result_type, rid, result):
-    conn = get_db()
-    c = conn.cursor()
-    c.execute("INSERT OR REPLACE INTO real_results (type, id, result) VALUES (?, ?, ?)",
-              (result_type, str(rid), json.dumps(result)))
-    conn.commit()
-    conn.close()
-
-
-# ====================== MAAT ======================
+# ====================== MAAT & OTTELUT ======================
 countries = sorted([
     "Algeria", "Argentiina", "Australia", "Belgia", "Bosnia ja Hertsegovina", "Brasilia",
     "Chile", "Curaçao", "Ecuador", "Egypti", "Englanti", "Espanja", "Etelä-Afrikka",
@@ -192,7 +172,7 @@ countries = sorted([
     "Tunisia", "Turkki", "Tšekki", "Uruguay", "USA", "Uusi-Seelanti", "Uzbekistan"
 ])
 
-# ====================== OTTELUT ======================
+# ====================== 72 OTTELUA ======================
 matches = [
     {"id":1, "date":"2026-06-11", "time":"22:00", "home":"Meksiko", "away":"Etelä-Afrikka", "group":"A"},
     {"id":2, "date":"2026-06-12", "time":"05:00", "home":"Etelä-Korea", "away":"Tšekki", "group":"A"},
@@ -281,37 +261,12 @@ for letter in "ABCDEFGHIJKL":
     special_bets.append({"id": f"group_{letter.lower()}", "name": f"Lohko {letter} voittaja", "points": 3, "type": "select"})
 
 
-# ====================== ISTUNTO ======================
+# ====================== ISTUNTO & DATA ======================
 if "logged_in_user" not in st.session_state:
     st.session_state.logged_in_user = None
 
 users = load_users()
 real_results = load_real_results()
-
-# ====================== LATAA PREDICTIONS ======================
-def load_all_predictions():
-    conn = get_db()
-    df = pd.read_sql_query("SELECT * FROM predictions", conn)
-    conn.close()
-    
-    predictions = {}
-    for _, row in df.iterrows():
-        username = row['username']
-        if username not in predictions:
-            predictions[username] = {}
-        
-        match_id = row['match_id']
-        predictions[username][match_id] = [row['home_goals'], row['away_goals']]
-        
-        # Erikoiskohteet
-        try:
-            special = json.loads(row['special_bets'])
-            if special and special != {}:
-                predictions[username]["special"] = special
-        except:
-            pass
-    return predictions
-
 predictions = load_all_predictions()
 
 st.toast("✅ Tietokanta ja Persistent Disk käytössä", icon="🔒")
@@ -330,51 +285,26 @@ def get_countdown(match):
     except:
         return "Virhe", False
 
-def get_special_bets_countdown():
-    return get_countdown(matches[0]) if matches else ("", False)
-
 def calculate_match_points(pred, real):
-    """
-    pred ja real ovat listoja: [kotimaali, vierasmaali]
-    """
     if not pred or not real:
         return 0
-    
     p_home, p_away = pred
     r_home, r_away = real
-    
-    # 1. Täysin oikein
     if p_home == r_home and p_away == r_away:
         return 8
-    
-    # Oikea voittaja?
     p_winner = 0 if p_home > p_away else 1 if p_home < p_away else 2
     r_winner = 0 if r_home > r_away else 1 if r_home < r_away else 2
-    
     if p_winner != r_winner:
-        return 0  # Väärä voittaja = 0 pistettä
-    
-    # ====================== OIKEA VOITTAJA ======================
-    
-    # 2. Väärä tasapeli (veikkasit tasapelin, mutta väärä maalimäärä)
+        return 0
     if p_winner == 2:
         return 4
-    
-    # Oikea voittaja, lasketaan maaliero
     home_diff = abs(p_home - r_home)
     away_diff = abs(p_away - r_away)
-    
-    # 3. 6 pistettä: toisen joukkueen maalit täysin oikein, toisen vain yhdellä väärin
     if (home_diff == 0 and away_diff == 1) or (home_diff == 1 and away_diff == 0):
         return 6
-    
-    # 4. 5 pistettä: vain toisen joukkueen maalit oikein (toinen ero >1)
     if home_diff == 0 or away_diff == 0:
         return 5
-    
-    # 5. 3 pistettä: vain oikea voittaja, molemmat maalimäärät väärin
     return 3
-
 
 # ====================== SIVUPALKKI ======================
 st.sidebar.title("⚽ MM26 - Veikkauskisa")
@@ -401,10 +331,9 @@ else:
     if st.sidebar.button("Kirjaudu ulos", key="logout_btn"):
         st.session_state.logged_in_user = None
         st.rerun()
-        
+
 # ====================== ETUSIVU ======================
 if page == "Etusivu":
-    # Taustatyylit
     st.markdown("""
         <style>
             .etusivu_text { 
@@ -414,8 +343,6 @@ if page == "Etusivu":
                 color: #00ff9d; 
                 text-shadow: 0 0px rgba(0, 255, 157, 0.8);
                 margin: 40px 0 30px 0;
-                position: relative;
-                z-index: 2;
             }
             .welcome_text { 
                 text-align: center; 
@@ -423,34 +350,12 @@ if page == "Etusivu":
                 font-weight: 1000; 
                 color: #e0e0e0; 
                 margin-bottom: 80px;
-                position: relative;
-                z-index: 2;
-            }
-            .background-countries {
-                position: fixed;
-                top: 0;
-                left: 0;
-                width: 100%;
-                height: 100%;
-                overflow: hidden;
-                z-index: 0;
-                opacity: 0.08;
-                color: #ffffff;
-                font-size: 1.15rem;
-                line-height: 1.8;
-                pointer-events: none;
-                user-select: none;
             }
         </style>
     """, unsafe_allow_html=True)
 
-   
-
-    # Varsinainen sisältö
     st.markdown('<div class="etusivu_text">MM26</div>', unsafe_allow_html=True)
     st.markdown('<p class="welcome_text">Tervetuloa veikkaamaan ja onnea matkaan!</p>', unsafe_allow_html=True)
-
-
 
 # ====================== KIRJAUDU / REKISTERÖIDY ======================
 if page == "Kirjaudu / Rekisteröidy":
@@ -493,24 +398,204 @@ if page == "Kirjaudu / Rekisteröidy":
                     elif new_user in users:
                         st.error("Käyttäjänimi on jo käytössä")
                     else:
-                        # SQLite-tallennus
                         save_user(new_user, hash_password(new_pass))
                         users[new_user] = hash_password(new_pass)
                         st.success("Tunnus luotu onnistuneesti! Voit nyt kirjautua sisään.")
                         st.rerun()
 
+# ====================== OMAT VEIKKAUKSET ======================
+if page == "Omat veikkaukset":
+    if not st.session_state.get("logged_in_user"):
+        st.warning("Kirjaudu ensin sisään!")
+    else:
+        user = st.session_state.logged_in_user
+        st.subheader(f"OMAT VEIKKAUKSET - {user}")
+        
+        tab1, tab2 = st.tabs(["Otteluveikkaukset", "Erikoiskohteet"])
+        
+        with tab1:
+            for m in matches:
+                match_id = str(m['id'])
+                pred = predictions.get(user, {}).get(match_id)
+                real = real_results.get("matches", {}).get(match_id)
+                
+                st.markdown(f"**{m['home']} — {m['away']}**")
+                
+                col1, col2 = st.columns([3, 1])
+                with col1:
+                    if real:
+                        st.markdown(f"<div style='font-size: 1.9rem; font-weight: 700; color: #88ffaa;'>{real[0]}–{real[1]}</div>", unsafe_allow_html=True)
+                    else:
+                        st.markdown('<div style="font-size: 1.9rem; color: #555;">–</div>', unsafe_allow_html=True)
+                    
+                    if pred:
+                        st.markdown(f"<div style='font-size: 1.1rem; color: #aaaaaa;'>Oma veikkaus: {pred[0]}–{pred[1]}</div>", unsafe_allow_html=True)
+                    else:
+                        st.markdown('<div style="font-size: 1.1rem; color: #666;">Ei veikkausta</div>', unsafe_allow_html=True)
+                
+                with col2:
+                    if real and pred:
+                        pts = calculate_match_points(pred, real)
+                        st.markdown(f"<div style='text-align: center; background: #2a2a4a; color: #ffff88; font-weight: 700; font-size: 1.6rem; width: 75px; height: 75px; border-radius: 50%; display: flex; align-items: center; justify-content: center; margin: 15px auto; box-shadow: 0 0 15px rgba(255,255,136,0.4);'>+{pts}</div>", unsafe_allow_html=True)
+                    elif real:
+                        st.markdown('<div style="text-align: center; color: #666; margin-top: 30px;">0</div>', unsafe_allow_html=True)
+                
+                st.divider()
+
+        with tab2:
+            user_special = predictions.get(user, {}).get("special", {})
+            real_special = real_results.get("special", {})
+            
+            for bet in special_bets:
+                pred_value = user_special.get(bet["id"])
+                real_value = real_special.get(bet["id"])
+                
+                question = bet.get('name') or bet.get('text', bet["id"])
+                st.markdown(f"**{question}**")
+                
+                col1, col2 = st.columns([3, 1])
+                with col1:
+                    if real_value:
+                        st.markdown(f"<div style='font-size: 1.85rem; font-weight: 700; color: #88ffaa;'>{real_value}</div>", unsafe_allow_html=True)
+                    else:
+                        st.markdown('<div style="font-size: 1.85rem; color: #555;">–</div>', unsafe_allow_html=True)
+                    
+                    if pred_value:
+                        st.markdown(f"<div style='font-size: 1.1rem; color: #aaaaaa;'>Oma veikkaus: {pred_value}</div>", unsafe_allow_html=True)
+                    else:
+                        st.markdown('<div style="font-size: 1.1rem; color: #666;">Ei veikkausta</div>', unsafe_allow_html=True)
+                
+                with col2:
+                    if real_value and pred_value:
+                        user_str = str(pred_value).lower().strip()
+                        real_list = [x.strip().lower() for x in str(real_value).split(",")]
+                        pts = bet.get("points", 6) if user_str in real_list else 0
+                        st.markdown(f"<div style='text-align: center; background: #2a2a4a; color: #ffff88; font-weight: 700; font-size: 1.55rem; width: 72px; height: 72px; border-radius: 50%; display: flex; align-items: center; justify-content: center; margin: 15px auto; box-shadow: 0 0 15px rgba(255,255,136,0.4);'>+{pts}</div>", unsafe_allow_html=True)
+                    elif real_value:
+                        st.markdown('<div style="text-align: center; color: #666; margin-top: 30px;">0</div>', unsafe_allow_html=True)
+                
+                st.divider()
+
+# ====================== VEIKKAUSTILANNE ======================
+if page == "Veikkaustilanne":
+    st.subheader("VEIKKAUSTILANNE")
+    
+    leaderboard = []
+    for username in users.keys():
+        user_pred = predictions.get(username, {})
+        total_points = 0
+        
+        # Ottelupisteet
+        for m in matches:
+            pred = user_pred.get(str(m['id']))
+            real = real_results.get("matches", {}).get(str(m['id']))
+            if pred and real:
+                total_points += calculate_match_points(pred, real)
+        
+        # Erikoiskohteet
+        user_special = user_pred.get("special", {})
+        real_special = real_results.get("special", {})
+        for bet in special_bets:
+            pred_val = user_special.get(bet["id"])
+            real_val = real_special.get(bet["id"])
+            if pred_val and real_val:
+                user_str = str(pred_val).lower().strip()
+                real_list = [x.strip().lower() for x in str(real_val).split(",")]
+                if user_str in real_list:
+                    total_points += bet.get("points", 6)
+        
+        leaderboard.append({"Nimi": username, "Pisteet": total_points})
+    
+    leaderboard.sort(key=lambda x: x["Pisteet"], reverse=True)
+    
+    for i, entry in enumerate(leaderboard):
+        entry["Sija"] = i + 1
+    
+    # Näytetään tyylikkäästi
+    for entry in leaderboard:
+        c1, c2, c3 = st.columns([0.5, 0.3, 1.4])
+        with c1:
+            st.markdown(f"""
+                <div style="text-align: right; font-size: 1.8rem; font-weight: 700; color: #00ff9d; padding-right: 12px;">
+                    {entry["Sija"]}
+                </div>
+            """, unsafe_allow_html=True)
+        with c2:
+            st.markdown(f"""
+                <div style="font-size: 1.8rem; font-weight: 700; color: #e0e0e0;">
+                    {entry["Nimi"]}
+                </div>
+            """, unsafe_allow_html=True)
+        with c3:
+            st.markdown(f"""
+                <div style="text-align: center; background: #2a2a4a; color: #ffff88; 
+                font-weight: 700; font-size: 1.2rem; width: 54px; height: 54px; 
+                border-radius: 50%; display: flex; align-items: center; 
+                justify-content: center; margin: 0 auto; box-shadow: 0 0 12px rgba(255,255,136,0.3);">
+                    {entry["Pisteet"]}
+                </div>
+            """, unsafe_allow_html=True)
+        
+        st.markdown("""
+            <div style="height: 1px; background: linear-gradient(to right, transparent, #334466, transparent); 
+            margin: 8px 40px;"></div>
+        """, unsafe_allow_html=True)
+
+# ====================== KAIKKIEN VEIKKAUKSET ======================
+if page == "Kaikkien veikkaukset":
+    st.subheader("KAIKKIEN VEIKKAUKSET")
+    st.caption("Tälle sivulle päivittyvät kaikkien veikkaajien tekemät veikkaukset vertailtavaksi ottelujen päätyttyä")
+    
+    tab1, tab2 = st.tabs(["Otteluveikkaukset", "Erikoiskohteet"])
+    
+    locked_matches = real_results.get("matches", {})
+    locked_special = real_results.get("special", {})
+    
+    with tab1:
+        if not locked_matches:
+            st.info("Yksikään ottelu ei ole vielä ratkennut")
+        else:
+            for m in matches:
+                match_id = str(m['id'])
+                real = locked_matches.get(match_id)
+                if real:
+                    st.markdown(f"**{m['home']} — {m['away']}**")
+                    st.success(f"Tulos: **{real[0]}–{real[1]}**")
+                    
+                    for u in sorted(users.keys()):
+                        pred = predictions.get(u, {}).get(match_id)
+                        if pred:
+                            pts = calculate_match_points(pred, real)
+                            st.markdown(f"**{u}**: {pred[0]}–{pred[1]} <span style='color:#00ff9d'>(+{pts}p)</span>", unsafe_allow_html=True)
+                    st.divider()
+
+    with tab2:
+        if not locked_special:
+            st.info("Erikoiskohteet eivät ole vielä ratkenneet")
+        else:
+            for bet in special_bets:
+                bet_id = bet["id"]
+                real_val = locked_special.get(bet_id)
+                if real_val:
+                    question = bet.get('name') or bet_id
+                    st.markdown(f"**{question}**")
+                    st.success(f"**Oikea vastaus:** {real_val}")
+                    
+                    for u in sorted(users.keys()):
+                        user_special = predictions.get(u, {}).get("special", {})
+                        user_pred = user_special.get(bet_id)
+                        if user_pred:
+                           
+
 # ====================== SÄÄNNÖT ======================
 if page == "Säännöt":
     st.title("Säännöt ja pisteytysjärjestelmä")
     st.markdown("---")
-    
     st.subheader("Otteluveikkaukset")
-    
     st.markdown("""
     Pisteitä saa ainoastaan, kun on veikannut oikeaa tulosta (1X2). Lopullisen veikkauskohteen pistemäärän määrittelee se, kuinka lähelle oikeaa tulosta veikkasit. 
     """)
     
-    # Pistetaulukko
     data = {
         "Veikkauksesi": [
             "Täysin oikea tulos",
@@ -522,21 +607,13 @@ if page == "Säännöt":
         ],
         "Pisteet": ["**8**", "**6**", "**5**", "**4**", "**3**", "**0**"]
     }
-    
-    import pandas as pd
     df = pd.DataFrame(data)
     st.table(df.style.set_properties(**{'text-align': 'left'}))
     
     st.markdown("---")
-    
     st.subheader("Erikoiskohteet")
-    st.write("**Jokaiselle erikoiskohteelle on määritelty omat pistemääränsä oikein veikatessa (3-10). Ne näkyvät veikkausta tehtäessä. Erikoiskohteista saatavat pisteet rekisteröityvät veikkaustilanteeseen heti kun kohde on ratkennut. Muutamassa erikoiskohteessa voidaan päätyä tilanteeseen, jossa useampi eri veikkaus on oikein. Tällöin tietenkin pisteet tulevat kaikista näistä veikkauksista samanarvoisesti.**")
-    
-    st.markdown("---")
-    st.caption("""
-    Yksittäinen veikkauskohde/ottelu sulkeutuu aina 15 minuuttia ennen pelin alkamista. Voit muokata omaa veikkaustasi siihen asti aivan vapaasti. Kun kohde sulkeutuu se poistuu veikattavien kohteiden listalta ja ylimpänä näkyy aina seuraavaksi sulkeutuva kohde. Erikoiskohteet sulkeutuvat kaikki samanaikaisesti 15 minuuttia ennen kisojen ensimmäisen pelin alkua. Pisteet päivittyvät automaattisesti. Näet omat veikkauksesi heti valikon kohdasta "Omat veikkaukset" kun olet ne veikannut, kaikkien muiden veikkaukset tulevat vertailtavaksi näkyviin vasta kun pelikohde on mennyt kiinni ja tulos kirjattu sivulle. 
-    """)
-
+    st.write("**Jokaiselle erikoiskohteelle on määritelty omat pistemääränsä oikein veikatessa (3-10).**")
+    st.caption("Yksittäinen veikkauskohde sulkeutuu 15 minuuttia ennen ottelun alkua...")
 
 # ====================== VEIKKAA OTTELUITA ======================
 if page == "Veikkaa otteluita":
@@ -596,7 +673,6 @@ if page == "Veikkaa erikoiskohteita":
         user = st.session_state.logged_in_user
         real_special = real_results.get("special", {})
         
-        # Tarkistetaan onko erikoiskohteissa YHTÄÄN lukittua tulosta
         if real_special and len(real_special) > 0:
             st.success("✅ Erikoiskohteet ovat lukittu.")
             st.info("Voit tarkastella veikkauksiasi 'Omat veikkaukset' -sivulta.")
@@ -611,301 +687,43 @@ if page == "Veikkaa erikoiskohteita":
                 pred_value = user_special.get(bet_id)
                 real_value = real_special.get(bet_id)
                 
-                question = bet.get('name') or bet.get('question') or bet.get('text', bet_id)
+                question = bet.get('name') or bet.get('text', bet_id)
                 st.markdown(f"**{question}** ({bet.get('points', 6)} pistettä)")
                 
                 if real_value:
                     st.success(f"Toteutunut vastaus: **{real_value}**")
                 else:
-                    # Veikkauslomake
                     if bet["id"] in ["most_goals", "most_cards", "champion"]:
-                        value = st.selectbox("Valitse maa", options=countries, 
-                                           key=f"spec_{bet_id}", label_visibility="collapsed")
+                        value = st.selectbox("Valitse maa", options=countries, key=f"spec_{bet_id}", label_visibility="collapsed")
                     elif bet["id"] == "top_scorer":
                         value = st.text_input("Pelaajan nimi", key=f"spec_{bet_id}", label_visibility="collapsed")
                     elif bet["id"] == "top_scorer_goals":
-                        value = st.selectbox("Maalimäärä", options=list(range(1,21)), 
-                                           key=f"spec_{bet_id}", label_visibility="collapsed")
+                        value = st.selectbox("Maalimäärä", options=list(range(1,21)), key=f"spec_{bet_id}", label_visibility="collapsed")
                     elif bet["id"].startswith("group_"):
                         group_letter = bet["id"].split("_")[1].upper()
                         group_matches = [m for m in matches if m.get("group") == group_letter]
                         group_teams = sorted(set([m["home"] for m in group_matches] + [m["away"] for m in group_matches]))
-                        value = st.selectbox("Lohkovoittaja", options=group_teams, 
-                                           key=f"spec_{bet_id}", label_visibility="collapsed")
+                        value = st.selectbox("Lohkovoittaja", options=group_teams, key=f"spec_{bet_id}", label_visibility="collapsed")
                     else:
                         value = st.text_input("Vastaus", key=f"spec_{bet_id}", label_visibility="collapsed")
                     
                     if st.button("Tallenna veikkaus", key=f"save_spec_{bet_id}", use_container_width=True):
-    if user not in predictions:
-        predictions[user] = {"special": {}}
-    if "special" not in predictions[user]:
-        predictions[user]["special"] = {}
-    predictions[user]["special"][bet_id] = str(value).strip()
-    
-    # Tallenna SQLiteen
-    save_prediction(user, "special", 0, 0, predictions[user]["special"])
-    
-    st.success("✅ Veikkaus tallennettu!")
-    st.rerun()
+                        if user not in predictions:
+                            predictions[user] = {"special": {}}
+                        if "special" not in predictions[user]:
+                            predictions[user]["special"] = {}
+                        predictions[user]["special"][bet_id] = str(value).strip()
+                        save_prediction(user, "special", 0, 0, predictions[user]["special"])
+                        st.success("✅ Veikkaus tallennettu!")
+                        st.rerun()
                 
                 st.divider()
-
-
-# ====================== VEIKKAUSTILANNE ======================
-if page == "Veikkaustilanne":
-    st.subheader("VEIKKAUSTILANNE")
-    
-    # Lasketaan pisteet
-    leaderboard = []
-    for user in users.keys():
-        user_pred = predictions.get(user, {})
-        total_points = 0
-        for m in matches:
-            pred = user_pred.get(str(m['id']))
-            real = real_results.get("matches", {}).get(str(m['id']))
-            if pred and real:
-                total_points += calculate_match_points(pred, real)
-        
-        user_special = user_pred.get("special", {})
-        real_special = real_results.get("special", {})
-        for bet in special_bets:
-            pred_val = user_special.get(bet["id"])
-            real_val = real_special.get(bet["id"])
-            if pred_val and real_val:
-                user_str = str(pred_val).lower().strip()
-                real_list = [x.strip().lower() for x in str(real_val).split(",")]
-                if user_str in real_list:
-                    total_points += bet.get("points", 6)
-        
-        leaderboard.append({"Nimi": user, "Pisteet": total_points})
-    
-    leaderboard.sort(key=lambda x: x["Pisteet"], reverse=True)
-    
-    for i, entry in enumerate(leaderboard):
-        entry["Sija"] = i + 1
-    
-    # Tyylikäs versio ohuilla viivoilla
-    for entry in leaderboard:
-        c1, c2, c3 = st.columns([0.5, 0.3, 1.4])
-        
-        with c1:
-            st.markdown(f"""
-                <div style="text-align: right; font-size: 1.8rem; font-weight: 700; color: #00ff9d; padding-right: 12px;">
-                    {entry["Sija"]}
-                </div>
-            """, unsafe_allow_html=True)
-        
-        with c2:
-            st.markdown(f"""
-                <div style="font-size: 1.8rem; font-weight: 700; color: #e0e0e0;">
-                    {entry["Nimi"]}
-                </div>
-            """, unsafe_allow_html=True)
-        
-        with c3:
-            st.markdown(f"""
-                <div style="text-align: center; background: #2a2a4a; color: #ffff88; 
-                font-weight: 700; font-size: 1.2rem; width: 54px; height: 54px; 
-                border-radius: 50%; display: flex; align-items: center; 
-                justify-content: center; margin: 0 auto; box-shadow: 0 0 12px rgba(255,255,136,0.3);">
-                    {entry["Pisteet"]}
-                </div>
-            """, unsafe_allow_html=True)
-        
-        # Hieno ohut viiva
-        st.markdown("""
-            <div style="height: 1px; background: linear-gradient(to right, transparent, #334466, transparent); 
-            margin: 8px 40px;"></div>
-        """, unsafe_allow_html=True)
-
-# ====================== OMAT VEIKKAUKSET ======================
-if page == "Omat veikkaukset":
-    if not st.session_state.get("logged_in_user"):
-        st.warning("Kirjaudu ensin sisään!")
-    else:
-        user = st.session_state.logged_in_user
-        st.subheader(f"OMAT VEIKKAUKSET")
-        
-        tab1, tab2 = st.tabs(["Otteluveikkaukset", "Erikoiskohteet"])
-        
-        # ====================== TAB 1: OTTELUVEIKKAUKSET ======================
-        with tab1:
-            for m in matches:
-                match_id = str(m['id'])
-                pred = predictions.get(user, {}).get(match_id)
-                real = real_results.get("matches", {}).get(match_id)
-                
-                st.markdown(f"**{m['home']} — {m['away']}**")
-                
-                col1, col2 = st.columns([3, 1])
-                
-                with col1:
-                    if real:
-                        st.markdown(f"""
-                            <div style="font-size: 1.9rem; font-weight: 700; color: #88ffaa; margin: 8px 0 6px 0;">
-                                {real[0]}–{real[1]}
-                            </div>
-                        """, unsafe_allow_html=True)
-                    else:
-                        st.markdown('<div style="font-size: 1.9rem; color: #555;">–</div>', unsafe_allow_html=True)
-                    
-                    if pred:
-                        st.markdown(f"""
-                            <div style="font-size: 1.1rem; color: #aaaaaa;">
-                                Oma veikkaus: {pred[0]}–{pred[1]}
-                            </div>
-                        """, unsafe_allow_html=True)
-                    else:
-                        st.markdown('<div style="font-size: 1.1rem; color: #666;">Ei veikkausta</div>', unsafe_allow_html=True)
-                
-                with col2:
-                    if real and pred:
-                        pts = calculate_match_points(pred, real)
-                        st.markdown(f"""
-                            <div style="text-align: center; background: #2a2a4a; color: #ffff88; 
-                            font-weight: 700; font-size: 1.6rem; width: 75px; height: 75px; 
-                            border-radius: 50%; display: flex; align-items: center; 
-                            justify-content: center; margin: 15px auto; box-shadow: 0 0 15px rgba(255,255,136,0.4);">
-                                +{pts}
-                            </div>
-                        """, unsafe_allow_html=True)
-                    elif real:
-                        st.markdown('<div style="text-align: center; color: #666; margin-top: 30px;">0</div>', unsafe_allow_html=True)
-                
-                st.divider()
-
-        # ====================== TAB 2: ERIKOISKOHTEET ======================
-        with tab2:
-            user_special = predictions.get(user, {}).get("special", {})
-            real_special = real_results.get("special", {})
-            
-            for bet in special_bets:
-                pred_value = user_special.get(bet["id"])
-                real_value = real_special.get(bet["id"])
-                
-                question = bet.get('name') or bet.get('question') or bet.get('text', bet["id"])
-                st.markdown(f"**{question}**")
-                
-                col1, col2 = st.columns([3, 1])
-                
-                with col1:
-                    if real_value:
-                        st.markdown(f"""
-                            <div style="font-size: 1.85rem; font-weight: 700; color: #88ffaa; margin: 8px 0 6px 0;">
-                                {real_value}
-                            </div>
-                        """, unsafe_allow_html=True)
-                    else:
-                        st.markdown('<div style="font-size: 1.85rem; color: #555;">–</div>', unsafe_allow_html=True)
-                    
-                    if pred_value:
-                        st.markdown(f"""
-                            <div style="font-size: 1.1rem; color: #aaaaaa;">
-                                Oma veikkaus: {pred_value}
-                            </div>
-                        """, unsafe_allow_html=True)
-                    else:
-                        st.markdown('<div style="font-size: 1.1rem; color: #666;">Ei veikkausta</div>', unsafe_allow_html=True)
-                
-                with col2:
-                    if real_value and pred_value:
-                        user_str = str(pred_value).lower().strip()
-                        real_list = [x.strip().lower() for x in str(real_value).split(",")]
-                        pts = bet.get("points", 6) if user_str in real_list else 0
-                        st.markdown(f"""
-                            <div style="text-align: center; background: #2a2a4a; color: #ffff88; 
-                            font-weight: 700; font-size: 1.55rem; width: 72px; height: 72px; 
-                            border-radius: 50%; display: flex; align-items: center; 
-                            justify-content: center; margin: 15px auto; box-shadow: 0 0 15px rgba(255,255,136,0.4);">
-                                +{pts}
-                            </div>
-                        """, unsafe_allow_html=True)
-                    elif real_value:
-                        st.markdown('<div style="text-align: center; color: #666; margin-top: 30px;">0</div>', unsafe_allow_html=True)
-                
-                st.divider()
-           
-# ====================== KAIKKIEN VEIKKAUKSET ======================
-if page == "Kaikkien veikkaukset":
-    st.subheader("KAIKKIEN VEIKKAUKSET")
-    st.caption("Tälle sivulle päivittyvät kaikkien veikkaajien tekemät veikkaukset vertailtavaksi ottelujen päätyttyä")
-    
-    tab1, tab2 = st.tabs(["Otteluveikkaukset", "Erikoiskohteet"])
-    
-    locked_matches = real_results.get("matches", {})
-    locked_special = real_results.get("special", {})
-    
-    # ====================== TAB 1: OTTELUT ======================
-    with tab1:
-        if not locked_matches:
-            st.info("Yksikään veikkauskohde ei ole vielä ratkennut")
-        else:
-            for m in matches:
-                match_id = str(m['id'])
-                real = locked_matches.get(match_id)
-                if real:
-                    st.markdown(f"**{m['home']} — {m['away']}** ({m.get('group', '')})")
-                    st.success(f"Tulos: **{real[0]}–{real[1]}**")
-                    
-                    for u in sorted(users.keys()):
-                        pred = predictions.get(u, {}).get(match_id)
-                        if pred:
-                            pts = calculate_match_points(pred, real)
-                            st.markdown(f"**{u}**: {pred[0]}–{pred[1]} <span style='color:#00ff9d'>(+{pts}p)</span>", unsafe_allow_html=True)
-                    st.divider()
-
-    # ====================== TAB 2: ERIKOISKOHTEET ======================
-    with tab2:
-        if not locked_special:
-            st.info("Erikoiskohteiden veikkaus päättyy 15 minuuttia ennen ensimmäisen pelin alkua")
-        else:
-            for bet in special_bets:
-                bet_id = bet["id"]
-                real_val = locked_special.get(bet_id)
-                
-                if real_val:
-                    # Suomenkielinen otsikko
-                    if bet_id == "most_goals":
-                        question = "Mikä maa tekee alkulohkojen peleissä eniten maaleja?"
-                    elif bet_id == "most_cards":
-                        question = "Mikä maa saa alkulohkojen peleissä eniten varoituksia (keltaiset + punaiset)?"
-                    elif bet_id == "top_scorer":
-                        question = "Paras maalintekijä koko turnauksessa?"
-                    elif bet_id == "top_scorer_goals":
-                        question = "Millä maalimäärällä voitetaan maalintekijäkuninkuus?"
-                    elif bet_id == "champion":
-                        question = "Maailmanmestarimaa?"
-                    elif "group_" in bet_id:
-                        group_letter = bet_id.split("_")[-1].upper()
-                        question = f"Lohkon {group_letter} voittaja?"
-                    else:
-                        question = bet.get('question') or bet.get('text', bet_id.replace("_", " ").title())
-                    
-                    st.markdown(f"**{question}**")
-                    st.success(f"**Oikea vastaus:** {real_val}")
-                    
-                    for u in sorted(users.keys()):
-                        user_special = predictions.get(u, {}).get("special", {})
-                        user_pred = user_special.get(bet_id)
-                        if user_pred:
-                            user_str = str(user_pred).lower().strip()
-                            real_list = [x.strip().lower() for x in str(real_val).split(",")]
-                            pts = bet.get("points", 6) if user_str in real_list else 0
-                            
-                            if pts > 0:
-                                st.markdown(f"**{u}**: {user_pred} <span style='color:#00ff9d'>(+{pts})</span>", unsafe_allow_html=True)
-                            else:
-                                st.markdown(f"**{u}**: {user_pred}", unsafe_allow_html=True)
-                    
-                    st.divider()
-
-
 
 # ====================== ADMIN ======================
 if page == "Admin":
     st.subheader("🛠️ Admin-paneeli")
     
-    ADMIN_PASSWORD = "admin123"   # <--- VAIHDA TÄHÄN OMA SALASANASI
+    ADMIN_PASSWORD = "admin123"   # VAIHDA TÄHÄN OMA SALASANASI
     
     if not st.session_state.get("is_admin", False):
         pw = st.text_input("Syötä admin-salasana", type="password", key="admin_pw")
@@ -926,8 +744,7 @@ if page == "Admin":
     )
     
     if admin_choice == "Lisää ottelun tulos":
-        st.write("### Ottelujen tulosten syöttö / muokkaus")
-        
+        st.write("### Ottelujen tulosten syöttö")
         for m in matches:
             match_id = str(m['id'])
             real = real_results.get("matches", {}).get(match_id)
@@ -941,17 +758,8 @@ if page == "Admin":
                 a = st.number_input("Vieras", 0, 20, value=real[1] if real else 0, key=f"a{match_id}")
             with col4:
                 if st.button("Tallenna", key=f"save{match_id}"):
-                    if "matches" not in real_results:
-                        real_results["matches"] = {}
-                    real_results["matches"][match_id] = [h, a]
-                    save_json("real_results.json", real_results)
+                    save_real_result("matches", match_id, [h, a])
                     st.success(f"✅ Tallennettu: {m['home']} {h}–{a} {m['away']}")
-                    st.rerun()
-                
-                if real and st.button("🗑️ Poista tulos", key=f"del{match_id}"):
-                    real_results["matches"].pop(match_id, None)
-                    save_json("real_results.json", real_results)
-                    st.success("Tulos poistettu – kohde avattu uudelleen")
                     st.rerun()
     
     elif admin_choice == "Lisää erikoiskohteen tulos":
@@ -959,45 +767,28 @@ if page == "Admin":
         for bet in special_bets:
             bet_id = bet["id"]
             real_val = real_results.get("special", {}).get(bet_id)
-            question = bet.get('question') or bet.get('text', bet_id)
-            
-            st.write(f"**{question}**")
+            st.write(f"**{bet.get('name', bet_id)}**")
             new_val = st.text_input("Oikea vastaus", value=real_val or "", key=f"e{bet_id}")
-            
-            col1, col2 = st.columns([1,1])
-            with col1:
-                if st.button("Tallenna", key=f"save{bet_id}"):
-                    if "special" not in real_results:
-                        real_results["special"] = {}
-                    real_results["special"][bet_id] = new_val.strip()
-                    save_json("real_results.json", real_results)
-                    st.success("✅ Tallennus onnistui!")
-                    st.rerun()
-            with col2:
-                if real_val and st.button("Poista tulos", key=f"del_spec{bet_id}"):
-                    real_results["special"].pop(bet_id, None)
-                    save_json("real_results.json", real_results)
-                    st.success("Tulos poistettu")
-                    st.rerun()
+            if st.button("Tallenna", key=f"save{bet_id}"):
+                save_real_result("special", bet_id, new_val)
+                st.success("✅ Tallennettu!")
+                st.rerun()
     
     elif admin_choice == "Hallinnoi käyttäjiä":
-        # (sama kuin aiemmin)
         st.write("### 👥 Hallinnoi käyttäjiä")
-        if not users:
-            st.info("Ei käyttäjiä")
-        else:
-            for user in list(users.keys()):
-                col1, col2 = st.columns([4,1])
-                with col1:
-                    st.write(f"**{user}**")
-                with col2:
-                    if st.button("Poista", key=f"del_user{user}"):
-                        users.pop(user, None)
-                        predictions.pop(user, None)
-                        save_json("users.json", users)
-                        save_json("predictions.json", predictions)
-                        st.success(f"{user} poistettu")
-                        st.rerun()
-
+        for user in list(users.keys()):
+            col1, col2 = st.columns([4,1])
+            with col1:
+                st.write(f"**{user}**")
+            with col2:
+                if st.button("Poista", key=f"del_user{user}"):
+                    conn = get_db()
+                    c = conn.cursor()
+                    c.execute("DELETE FROM users WHERE username = ?", (user,))
+                    c.execute("DELETE FROM predictions WHERE username = ?", (user,))
+                    conn.commit()
+                    conn.close()
+                    st.success(f"{user} poistettu")
+                    st.rerun()
 
 st.caption("Veikkausrinki MM26 — Powered by Streamlit + SQLite + Persistent Disk")
