@@ -13,8 +13,8 @@ st.set_page_config(
     initial_sidebar_state="expanded"
 )
 
-# ====================== PERSISTENT DISK ======================
-DATA_DIR = "/var/data"
+# ====================== PERSISTENT DISK (Render) ======================
+DATA_DIR = "/data"   # Renderin Persistent Disk käyttää tätä polkua
 DB_PATH = os.path.join(DATA_DIR, "veikkaus.db")
 os.makedirs(DATA_DIR, exist_ok=True)
 
@@ -75,20 +75,6 @@ def save_prediction(username, match_id, home_goals, away_goals, special=None):
     conn.commit()
     conn.close()
 
-def get_user_predictions(username):
-    conn = get_db()
-    df = pd.read_sql_query("SELECT * FROM predictions WHERE username = ?", conn, params=(username,))
-    conn.close()
-    return df
-
-def save_real_result(result_type, rid, result):
-    conn = get_db()
-    c = conn.cursor()
-    c.execute("INSERT OR REPLACE INTO real_results (type, id, result) VALUES (?, ?, ?)",
-              (result_type, str(rid), json.dumps(result)))
-    conn.commit()
-    conn.close()
-
 def load_real_results():
     conn = get_db()
     df = pd.read_sql_query("SELECT * FROM real_results", conn)
@@ -104,6 +90,15 @@ def load_real_results():
         except:
             pass
     return real
+
+def save_real_result(result_type, rid, result):
+    conn = get_db()
+    c = conn.cursor()
+    c.execute("INSERT OR REPLACE INTO real_results (type, id, result) VALUES (?, ?, ?)",
+              (result_type, str(rid), json.dumps(result)))
+    conn.commit()
+    conn.close()
+
 
 # ====================== MAAT ======================
 countries = sorted([
