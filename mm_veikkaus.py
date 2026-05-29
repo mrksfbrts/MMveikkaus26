@@ -490,11 +490,27 @@ if page == "Veikkaa otteluita":
                     
                     for m in current_tab_matches:
                         match_id = str(m['id'])
+                        is_double = m.get("double_points", False)
+                        
                         countdown_info = get_countdown(m)
                         if isinstance(countdown_info, tuple):
                             countdown_str, is_open = countdown_info
                         else:
                             countdown_str, is_open = str(countdown_info), False
+                        
+                        # Tuplapiste-ottelun korostus
+                        if is_double:
+                            st.markdown(f"""
+                                <div style="background: linear-gradient(90deg, #2a1f0f, #3a2a10); 
+                                            border: 2px solid #ffcc00; border-radius: 12px; 
+                                            padding: 12px 15px; margin: 8px 0;">
+                                    <div style="display: flex; align-items: center; gap: 8px;">
+                                        <span style="font-size: 1.4rem;">🔥</span>
+                                        <span style="color: #ffcc00; font-weight: 700; font-size: 1.1rem;">
+                                            TUPLAPISTEET ×2
+                                        </span>
+                                    </div>
+                            """, unsafe_allow_html=True)
                         
                         st.markdown(f"**{m['home']} — {m['away']}** ({m.get('group', '')})")
                         
@@ -516,8 +532,11 @@ if page == "Veikkaa otteluita":
                             save_json(PREDICTIONS_FILE, predictions)
                             st.success(f"Tallennettu: {m['home']} {home_score}–{away_score} {m['away']}")
                         
+                        if is_double:
+                            st.markdown("</div>", unsafe_allow_html=True)  # Suljetaan tupladivi
+                        
                         st.divider()
-
+                        
 # ====================== VEIKKAA ERIKOISKOHTEITA ======================
 if page == "Veikkaa erikoiskohteita":
     if not st.session_state.get("logged_in_user"):
