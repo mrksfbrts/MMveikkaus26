@@ -729,7 +729,7 @@ if page == "Kaikkien veikkaukset":
                         pred = predictions.get(u, {}).get(match_id)
                         if pred:
                             pts = calculate_match_points(pred, real, is_double)
-                            st.markdown(f"**{u}**: {pred[0]}–{pred[1]} <span style='color:#00ff9d'>(+{pts}p)</span>", unsafe_allow_html=True)
+                            st.markdown(f"**{u}**: {pred[0]}–{pred[1]} (+{pts}p)", unsafe_allow_html=True)
                     st.divider()
 
     # ====================== TAB 2: ERIKOISKOHTEET ======================
@@ -742,11 +742,10 @@ if page == "Kaikkien veikkaukset":
                 real_val = locked_special.get(bet_id)
                 
                 if real_val:
-                    # Suomenkielinen otsikko
                     if bet_id == "most_goals":
                         question = "Mikä maa tekee alkulohkojen peleissä eniten maaleja?"
                     elif bet_id == "most_cards":
-                        question = "Mikä maa saa alkulohkojen peleissä eniten varoituksia (keltaiset + punaiset)?"
+                        question = "Mikä maa saa alkulohkojen peleissä eniten varoituksia?"
                     elif bet_id == "top_scorer":
                         question = "Paras maalintekijä koko turnauksessa?"
                     elif bet_id == "top_scorer_goals":
@@ -757,7 +756,7 @@ if page == "Kaikkien veikkaukset":
                         group_letter = bet_id.split("_")[-1].upper()
                         question = f"Lohkon {group_letter} voittaja?"
                     else:
-                        question = bet.get('question') or bet.get('text', bet_id.replace("_", " ").title())
+                        question = bet.get('name', bet_id)
                     
                     st.markdown(f"**{question}**")
                     st.success(f"**Oikea vastaus:** {real_val}")
@@ -769,14 +768,12 @@ if page == "Kaikkien veikkaukset":
                             user_str = str(user_pred).lower().strip()
                             real_list = [x.strip().lower() for x in str(real_val).split(",")]
                             pts = bet.get("points", 6) if user_str in real_list else 0
-                            
                             if pts > 0:
-                                st.markdown(f"**{u}**: {user_pred} <span style='color:#00ff9d'>(+{pts})</span>", unsafe_allow_html=True)
+                                st.markdown(f"**{u}**: {user_pred} (+{pts}p)")
                             else:
-                                st.markdown(f"**{u}**: {user_pred}", unsafe_allow_html=True)
+                                st.markdown(f"**{u}**: {user_pred}")
                     
                     st.divider()
-
 
     
     # ====================== ADMIN ======================
