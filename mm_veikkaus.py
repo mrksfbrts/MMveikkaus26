@@ -435,7 +435,7 @@ if page == "Säännöt":
     st.subheader("Otteluveikkaukset")
     
     st.markdown("""
-    Pisteitä saa ainoastaan, kun on veikannut oikeaa tulosta (1X2). Lopullisen veikkauskohteen pistemäärän määrittelee se, kuinka lähelle oikeaa tulosta veikkasit. 
+    Pisteitä saa ainoastaan, kun on veikannut oikeaa tulosta (1X2). Lopullisen veikkauskohteen pistemäärän määrittelee se, kuinka lähelle oikeaa tulosta veikkasit. Jokaisessa lohkossa on yksi ennalta määritelty peli, josta on tarjolla tuplapisteet.  
     """)
     
     # Pistetaulukko
@@ -462,8 +462,7 @@ if page == "Säännöt":
     
     st.markdown("---")
     st.caption("""
-    Yksittäinen veikkauskohde/ottelu sulkeutuu aina 15 minuuttia ennen pelin alkamista. Voit muokata omaa veikkaustasi siihen asti aivan vapaasti. Kun kohde sulkeutuu se poistuu veikattavien kohteiden listalta ja ylimpänä näkyy aina seuraavaksi sulkeutuva kohde. Erikoiskohteet sulkeutuvat kaikki samanaikaisesti 15 minuuttia ennen kisojen ensimmäisen pelin alkua. Pisteet päivittyvät automaattisesti. Näet omat veikkauksesi heti valikon kohdasta "Omat veikkaukset" kun olet ne veikannut, kaikkien muiden veikkaukset tulevat vertailtavaksi näkyviin vasta kun pelikohde on mennyt kiinni ja tulos kirjattu sivulle. 
-    """)
+    Yksittäinen veikkauskohde/ottelu sulkeutuu aina 15 minuuttia ennen pelin alkamista. Voit muokata omaa veikkaustasi siihen asti aivan vapaasti. Kun kohde sulkeutuu se poistuu veikattavien kohteiden listalta ja ylimpänä näkyy aina seuraavaksi sulkeutuva kohde. Erikoiskohteet sulkeutuvat kaikki samanaikaisesti 15 minuuttia ennen kisojen ensimmäisen pelin alkua. Pisteet päivittyvät automaattisesti. Näet omat veikkauksesi heti valikon kohdasta "Omat veikkaukset" kun olet ne veikannut, kaikkien muiden veikkaukset tulevat vertailtavaksi näkyviin vasta kun pelikohde on mennyt kiinni ja tulos kirjattu sivulle.""")
 
 
 # ====================== VEIKKAA OTTELUITA ======================
@@ -550,7 +549,7 @@ if page == "Veikkaa erikoiskohteita":
             st.success("✅ Erikoiskohteet ovat lukittu.")
             st.info("Voit tarkastella veikkauksiasi 'Omat veikkaukset' -sivulta.")
         else:
-            st.subheader("🏆 Veikkaa erikoiskohteita")
+            st.subheader("Veikkaa erikoiskohteita")
             st.caption("Erikoiskohteet ovat avoinna")
             
             user_special = predictions.get(user, {}).get("special", {})
@@ -670,7 +669,7 @@ if page == "Omat veikkaukset":
         st.warning("Kirjaudu ensin sisään!")
     else:
         user = st.session_state.logged_in_user
-        st.subheader(f"OMAT VEIKKAUKSET - {user}")
+        st.subheader(f"OMAT VEIKKAUKSET")
         
         tab1, tab2 = st.tabs(["Otteluveikkaukset", "Erikoiskohteet"])
         
