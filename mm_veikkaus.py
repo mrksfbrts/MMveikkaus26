@@ -729,7 +729,7 @@ if page == "Kaikkien veikkaukset":
                         pred = predictions.get(u, {}).get(match_id)
                         if pred:
                             pts = calculate_match_points(pred, real, is_double)
-                            st.markdown(f"**{u}**: {pred[0]}–{pred[1]} (+{pts}p)", unsafe_allow_html=True)
+                            st.markdown(f"**{u}**: {pred[0]}–{pred[1]} (+{pts}p)")
                     st.divider()
 
     # ====================== TAB 2: ERIKOISKOHTEET ======================
@@ -756,7 +756,7 @@ if page == "Kaikkien veikkaukset":
                         group_letter = bet_id.split("_")[-1].upper()
                         question = f"Lohkon {group_letter} voittaja?"
                     else:
-                        question = bet.get('name', bet_id)
+                        question = bet.get('name', bet_id.replace("_", " ").title())
                     
                     st.markdown(f"**{question}**")
                     st.success(f"**Oikea vastaus:** {real_val}")
@@ -774,7 +774,6 @@ if page == "Kaikkien veikkaukset":
                                 st.markdown(f"**{u}**: {user_pred}")
                     
                     st.divider()
-
     
     # ====================== ADMIN ======================
 if page == "Admin":
