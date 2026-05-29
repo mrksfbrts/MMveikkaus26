@@ -768,7 +768,14 @@ if page == "Kaikkien veikkaukset":
                         if user_pred:
                             user_str = str(user_pred).lower().strip()
                             real_list = [x.strip().lower() for x in str(real_val).split(",")]
-                            pts = bet.get("
+                            pts = bet.get("points", 6) if user_str in real_list else 0
+                            
+                            if pts > 0:
+                                st.markdown(f"**{u}**: {user_pred} <span style='color:#00ff9d'>(+{pts})</span>", unsafe_allow_html=True)
+                            else:
+                                st.markdown(f"**{u}**: {user_pred}", unsafe_allow_html=True)
+                    
+                    st.divider()
 
 
     
