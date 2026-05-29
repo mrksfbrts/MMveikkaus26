@@ -124,91 +124,93 @@ if "logged_in_user" not in st.session_state:
 
 # ====================== MAAT ======================
 countries = sorted([
-    "Algeria", "Argentiina", "Australia", "Belgia", "Bosnia ja Hertsegovina", "Brasilia",
-    "Chile", "Curaçao", "Ecuador", "Egypti", "Englanti", "Espanja", "Etelä-Afrikka",
-    "Etelä-Korea", "Ghana", "Haiti", "Iran", "Irak", "Italia", "Itävalta", "Japani",
-    "Jordania", "Kanada", "Kolumbia", "Kroatia", "Marokko", "Meksiko", "Nigeria",
-    "Norja", "Norsunluurannikko", "Panama", "Paraguay", "Portugali", "Qatar", "Ranska",
-    "Ruotsi", "Saksa", "Saudi-Arabia", "Senegal", "Skotlanti", "Sveitsi", "Tanska",
-    "Tunisia", "Turkki", "Tšekki", "Uruguay", "USA", "Uusi-Seelanti", "Uzbekistan"
+    "Algeria", "Argentiina", "Australia", "Belgia", "Bosnia ja Hertsegovina", 
+    "Brasilia", "Curaçao", "Ecuador", "Egypti", "Englanti", "Espanja", 
+    "Etelä-Afrikka", "Etelä-Korea", "Ghana", "Haiti", "Hollanti", "Irak", 
+    "Iran", "Itävalta", "Japani", "Jordania", "Kanada", "Kap Verde", 
+    "Kolumbia", "Kongon demokraattinen tasavalta", "Kroatia", "Marokko", 
+    "Meksiko", "Norja", "Norsunluurannikko", "Panama", "Paraguay", 
+    "Portugali", "Qatar", "Ranska", "Ruotsi", "Saksa", "Saudi-Arabia", 
+    "Senegal", "Skotlanti", "Sveitsi", "Tunisia", "Turkki", "Tšekki", 
+    "USA", "Uruguay", "Uusi-Seelanti", "Uzbekistan"
+
 ])
 
 # ====================== 72 OTTELUA - YLEN MUKAAN ======================
 matches = [
-    {"id":1, "date":"2026-06-11", "time":"22:00", "home":"Meksiko", "away":"Etelä-Afrikka", "group":"A"},
-    {"id":2, "date":"2026-06-12", "time":"05:00", "home":"Etelä-Korea", "away":"Tšekki", "group":"A"},
-    {"id":3, "date":"2026-06-12", "time":"22:00", "home":"Kanada", "away":"Bosnia ja Hertsegovina", "group":"B"},
-    {"id":4, "date":"2026-06-13", "time":"04:00", "home":"USA", "away":"Paraguay", "group":"D"},
-    {"id":5, "date":"2026-06-13", "time":"22:00", "home":"Qatar", "away":"Sveitsi", "group":"B"},
-    {"id":6, "date":"2026-06-14", "time":"01:00", "home":"Brasilia", "away":"Marokko", "group":"C"},
-    {"id":7, "date":"2026-06-14", "time":"04:00", "home":"Haiti", "away":"Skotlanti", "group":"C"},
-    {"id":8, "date":"2026-06-14", "time":"07:00", "home":"Australia", "away":"Turkki", "group":"D"},
-    {"id":9, "date":"2026-06-14", "time":"20:00", "home":"Saksa", "away":"Curaçao", "group":"E"},
-    {"id":10,"date":"2026-06-14", "time":"23:00", "home":"Hollanti", "away":"Japani", "group":"F"},
-    {"id":11,"date":"2026-06-15", "time":"02:00", "home":"Norsunluurannikko", "away":"Ecuador", "group":"E"},
-    {"id":12,"date":"2026-06-15", "time":"05:00", "home":"Ruotsi", "away":"Tunisia", "group":"F"},
-    {"id":13,"date":"2026-06-15", "time":"19:00", "home":"Espanja", "away":"Kap Verde", "group":"H"},
-    {"id":14,"date":"2026-06-15", "time":"22:00", "home":"Belgia", "away":"Egypti", "group":"G"},
-    {"id":15,"date":"2026-06-16", "time":"01:00", "home":"Saudi-Arabia", "away":"Uruguay", "group":"H"},
-    {"id":16,"date":"2026-06-16", "time":"04:00", "home":"Iran", "away":"Uusi-Seelanti", "group":"G"},
-    {"id":17,"date":"2026-06-16", "time":"22:00", "home":"Ranska", "away":"Senegal", "group":"I"},
-    {"id":18,"date":"2026-06-17", "time":"01:00", "home":"Irak", "away":"Norja", "group":"I"},
-    {"id":19,"date":"2026-06-17", "time":"04:00", "home":"Argentiina", "away":"Algeria", "group":"J"},
-    {"id":20,"date":"2026-06-17", "time":"07:00", "home":"Itävalta", "away":"Jordania", "group":"J"},
-    {"id":21,"date":"2026-06-17", "time":"20:00", "home":"Portugali", "away":"Kongon demokraattinen tasavalta", "group":"K"},
-    {"id":22,"date":"2026-06-17", "time":"23:00", "home":"Englanti", "away":"Kroatia", "group":"L"},
-    {"id":23,"date":"2026-06-18", "time":"02:00", "home":"Ghana", "away":"Panama", "group":"L"},
-    {"id":24,"date":"2026-06-18", "time":"05:00", "home":"Uzbekistan", "away":"Kolumbia", "group":"K"},
-    {"id":25,"date":"2026-06-18", "time":"19:00", "home":"Tšekki", "away":"Etelä-Afrikka", "group":"A"},
-    {"id":26,"date":"2026-06-18", "time":"22:00", "home":"Sveitsi", "away":"Bosnia ja Hertsegovina", "group":"B"},
-    {"id":27,"date":"2026-06-19", "time":"01:00", "home":"Kanada", "away":"Qatar", "group":"B"},
-    {"id":28,"date":"2026-06-19", "time":"04:00", "home":"Meksiko", "away":"Etelä-Korea", "group":"A"},
-    {"id":29,"date":"2026-06-19", "time":"22:00", "home":"USA", "away":"Australia", "group":"D"},
-    {"id":30,"date":"2026-06-20", "time":"01:00", "home":"Skotlanti", "away":"Marokko", "group":"C"},
-    {"id":31,"date":"2026-06-20", "time":"04:00", "home":"Brasilia", "away":"Haiti", "group":"C"},
-    {"id":32,"date":"2026-06-20", "time":"07:00", "home":"Turkki", "away":"Paraguay", "group":"D"},
-    {"id":33,"date":"2026-06-20", "time":"20:00", "home":"Hollanti", "away":"Ruotsi", "group":"F"},
-    {"id":34,"date":"2026-06-20", "time":"23:00", "home":"Saksa", "away":"Norsunluurannikko", "group":"E"},
-    {"id":35,"date":"2026-06-21", "time":"03:00", "home":"Ecuador", "away":"Curaçao", "group":"E"},
-    {"id":36,"date":"2026-06-21", "time":"07:00", "home":"Tunisia", "away":"Japani", "group":"F"},
-    {"id":37,"date":"2026-06-21", "time":"19:00", "home":"Espanja", "away":"Saudi-Arabia", "group":"H"},
-    {"id":38,"date":"2026-06-21", "time":"22:00", "home":"Belgia", "away":"Iran", "group":"G"},
-    {"id":39,"date":"2026-06-22", "time":"01:00", "home":"Uruguay", "away":"Kap Verde", "group":"H"},
-    {"id":40,"date":"2026-06-22", "time":"04:00", "home":"Uusi-Seelanti", "away":"Egypti", "group":"G"},
-    {"id":41,"date":"2026-06-22", "time":"20:00", "home":"Argentiina", "away":"Itävalta", "group":"J"},
-    {"id":42,"date":"2026-06-23", "time":"00:00", "home":"Ranska", "away":"Irak", "group":"I"},
-    {"id":43,"date":"2026-06-23", "time":"03:00", "home":"Norja", "away":"Senegal", "group":"I"},
-    {"id":44,"date":"2026-06-23", "time":"06:00", "home":"Jordania", "away":"Algeria", "group":"J"},
-    {"id":45,"date":"2026-06-23", "time":"20:00", "home":"Portugali", "away":"Uzbekistan", "group":"K"},
-    {"id":46,"date":"2026-06-23", "time":"23:00", "home":"Englanti", "away":"Ghana", "group":"L"},
-    {"id":47,"date":"2026-06-24", "time":"02:00", "home":"Panama", "away":"Kroatia", "group":"L"},
-    {"id":48,"date":"2026-06-24", "time":"05:00", "home":"Kolumbia", "away":"Kongon demokraattinen tasavalta", "group":"K"},
-    {"id":49,"date":"2026-06-24", "time":"22:00", "home":"Sveitsi", "away":"Kanada", "group":"B"},
-    {"id":50,"date":"2026-06-24", "time":"22:00", "home":"Bosnia ja Hertsegovina", "away":"Qatar", "group":"B"},
-    {"id":51,"date":"2026-06-25", "time":"01:00", "home":"Skotlanti", "away":"Brasilia", "group":"C"},
-    {"id":52,"date":"2026-06-25", "time":"01:00", "home":"Marokko", "away":"Haiti", "group":"C"},
-    {"id":53,"date":"2026-06-25", "time":"04:00", "home":"Tšekki", "away":"Meksiko", "group":"A"},
-    {"id":54,"date":"2026-06-25", "time":"04:00", "home":"Etelä-Afrikka", "away":"Etelä-Korea", "group":"A"},
-    {"id":55,"date":"2026-06-25", "time":"23:00", "home":"Curaçao", "away":"Norsunluurannikko", "group":"E"},
-    {"id":56,"date":"2026-06-25", "time":"23:00", "home":"Ecuador", "away":"Saksa", "group":"E"},
-    {"id":57,"date":"2026-06-26", "time":"02:00", "home":"Japani", "away":"Ruotsi", "group":"F"},
-    {"id":58,"date":"2026-06-26", "time":"02:00", "home":"Tunisia", "away":"Hollanti", "group":"F"},
-    {"id":59,"date":"2026-06-26", "time":"05:00", "home":"Turkki", "away":"USA", "group":"D"},
-    {"id":60,"date":"2026-06-26", "time":"05:00", "home":"Paraguay", "away":"Australia", "group":"D"},
-    {"id":61,"date":"2026-06-26", "time":"22:00", "home":"Norja", "away":"Ranska", "group":"I"},
-    {"id":62,"date":"2026-06-26", "time":"22:00", "home":"Senegal", "away":"Irak", "group":"I"},
-    {"id":63,"date":"2026-06-27", "time":"03:00", "home":"Kap Verde", "away":"Saudi-Arabia", "group":"H"},
-    {"id":64,"date":"2026-06-27", "time":"03:00", "home":"Uruguay", "away":"Espanja", "group":"H"},
-    {"id":65,"date":"2026-06-27", "time":"06:00", "home":"Egypti", "away":"Iran", "group":"G"},
-    {"id":66,"date":"2026-06-27", "time":"06:00", "home":"Uusi-Seelanti", "away":"Belgia", "group":"G"},
-    {"id":67,"date":"2026-06-28", "time":"00:00", "home":"Panama", "away":"Englanti", "group":"L"},
-    {"id":68,"date":"2026-06-28", "time":"00:00", "home":"Kroatia", "away":"Ghana", "group":"L"},
-    {"id":69,"date":"2026-06-28", "time":"02:30", "home":"Kolumbia", "away":"Portugali", "group":"K"},
-    {"id":70,"date":"2026-06-28", "time":"02:30", "home":"Kongon demokraattinen tasavalta", "away":"Uzbekistan", "group":"K"},
-    {"id":71,"date":"2026-06-28", "time":"05:00", "home":"Algeria", "away":"Itävalta", "group":"J"},
-    {"id":72,"date":"2026-06-28", "time":"05:00", "home":"Jordania", "away":"Argentiina", "group":"J"}
+    {"id":1, "date":"2026-06-11", "time":"22:00", "home":"Meksiko", "away":"Etelä-Afrikka", "group":"A", "double_points": False},
+    {"id":2, "date":"2026-06-12", "time":"05:00", "home":"Etelä-Korea", "away":"Tšekki", "group":"A", "double_points": False},
+    {"id":3, "date":"2026-06-12", "time":"22:00", "home":"Kanada", "away":"Bosnia ja Hertsegovina", "group":"B", "double_points": False},
+    {"id":4, "date":"2026-06-13", "time":"04:00", "home":"USA", "away":"Paraguay", "group":"D", "double_points": True},   # Lohko D
+    {"id":5, "date":"2026-06-13", "time":"22:00", "home":"Qatar", "away":"Sveitsi", "group":"B", "double_points": False},
+    {"id":6, "date":"2026-06-14", "time":"01:00", "home":"Brasilia", "away":"Marokko", "group":"C", "double_points": False},
+    {"id":7, "date":"2026-06-14", "time":"04:00", "home":"Haiti", "away":"Skotlanti", "group":"C", "double_points": False},
+    {"id":8, "date":"2026-06-14", "time":"07:00", "home":"Australia", "away":"Turkki", "group":"D", "double_points": False},
+    {"id":9, "date":"2026-06-14", "time":"20:00", "home":"Saksa", "away":"Curaçao", "group":"E", "double_points": False},
+    {"id":10,"date":"2026-06-14", "time":"23:00", "home":"Hollanti", "away":"Japani", "group":"F", "double_points": False},
+    {"id":11,"date":"2026-06-15", "time":"02:00", "home":"Norsunluurannikko", "away":"Ecuador", "group":"E", "double_points": False},
+    {"id":12,"date":"2026-06-15", "time":"05:00", "home":"Ruotsi", "away":"Tunisia", "group":"F", "double_points": False},
+    {"id":13,"date":"2026-06-15", "time":"19:00", "home":"Espanja", "away":"Kap Verde", "group":"H", "double_points": False},
+    {"id":14,"date":"2026-06-15", "time":"22:00", "home":"Belgia", "away":"Egypti", "group":"G", "double_points": False},
+    {"id":15,"date":"2026-06-16", "time":"01:00", "home":"Saudi-Arabia", "away":"Uruguay", "group":"H", "double_points": False},
+    {"id":16,"date":"2026-06-16", "time":"04:00", "home":"Iran", "away":"Uusi-Seelanti", "group":"G", "double_points": True},   # Lohko G
+    {"id":17,"date":"2026-06-16", "time":"22:00", "home":"Ranska", "away":"Senegal", "group":"I", "double_points": False},
+    {"id":18,"date":"2026-06-17", "time":"01:00", "home":"Irak", "away":"Norja", "group":"I", "double_points": False},
+    {"id":19,"date":"2026-06-17", "time":"04:00", "home":"Argentiina", "away":"Algeria", "group":"J", "double_points": False},
+    {"id":20,"date":"2026-06-17", "time":"07:00", "home":"Itävalta", "away":"Jordania", "group":"J", "double_points": False},
+    {"id":21,"date":"2026-06-17", "time":"20:00", "home":"Portugali", "away":"Kongon demokraattinen tasavalta", "group":"K", "double_points": False},
+    {"id":22,"date":"2026-06-17", "time":"23:00", "home":"Englanti", "away":"Kroatia", "group":"L", "double_points": True},    # Lohko L
+    {"id":23,"date":"2026-06-18", "time":"02:00", "home":"Ghana", "away":"Panama", "group":"L", "double_points": False},
+    {"id":24,"date":"2026-06-18", "time":"05:00", "home":"Uzbekistan", "away":"Kolumbia", "group":"K", "double_points": False},
+    {"id":25,"date":"2026-06-18", "time":"19:00", "home":"Tšekki", "away":"Etelä-Afrikka", "group":"A", "double_points": False},
+    {"id":26,"date":"2026-06-18", "time":"22:00", "home":"Sveitsi", "away":"Bosnia ja Hertsegovina", "group":"B", "double_points": False},
+    {"id":27,"date":"2026-06-19", "time":"01:00", "home":"Kanada", "away":"Qatar", "group":"B", "double_points": True},      # Lohko B
+    {"id":28,"date":"2026-06-19", "time":"04:00", "home":"Meksiko", "away":"Etelä-Korea", "group":"A", "double_points": True}, # Lohko A
+    {"id":29,"date":"2026-06-19", "time":"22:00", "home":"USA", "away":"Australia", "group":"D", "double_points": False},
+    {"id":30,"date":"2026-06-20", "time":"01:00", "home":"Skotlanti", "away":"Marokko", "group":"C", "double_points": False},
+    {"id":31,"date":"2026-06-20", "time":"04:00", "home":"Brasilia", "away":"Haiti", "group":"C", "double_points": False},
+    {"id":32,"date":"2026-06-20", "time":"07:00", "home":"Turkki", "away":"Paraguay", "group":"D", "double_points": False},
+    {"id":33,"date":"2026-06-20", "time":"20:00", "home":"Hollanti", "away":"Ruotsi", "group":"F", "double_points": False},
+    {"id":34,"date":"2026-06-20", "time":"23:00", "home":"Saksa", "away":"Norsunluurannikko", "group":"E", "double_points": False},
+    {"id":35,"date":"2026-06-21", "time":"03:00", "home":"Ecuador", "away":"Curaçao", "group":"E", "double_points": True},    # Lohko E
+    {"id":36,"date":"2026-06-21", "time":"07:00", "home":"Tunisia", "away":"Japani", "group":"F", "double_points": True},     # Lohko F
+    {"id":37,"date":"2026-06-21", "time":"19:00", "home":"Espanja", "away":"Saudi-Arabia", "group":"H", "double_points": False},
+    {"id":38,"date":"2026-06-21", "time":"22:00", "home":"Belgia", "away":"Iran", "group":"G", "double_points": False},
+    {"id":39,"date":"2026-06-22", "time":"01:00", "home":"Uruguay", "away":"Kap Verde", "group":"H", "double_points": False},
+    {"id":40,"date":"2026-06-22", "time":"04:00", "home":"Uusi-Seelanti", "away":"Egypti", "group":"G", "double_points": False},
+    {"id":41,"date":"2026-06-22", "time":"20:00", "home":"Argentiina", "away":"Itävalta", "group":"J", "double_points": False},
+    {"id":42,"date":"2026-06-23", "time":"00:00", "home":"Ranska", "away":"Irak", "group":"I", "double_points": False},
+    {"id":43,"date":"2026-06-23", "time":"03:00", "home":"Norja", "away":"Senegal", "group":"I", "double_points": True},      # Lohko I
+    {"id":44,"date":"2026-06-23", "time":"06:00", "home":"Jordania", "away":"Algeria", "group":"J", "double_points": False},
+    {"id":45,"date":"2026-06-23", "time":"20:00", "home":"Portugali", "away":"Uzbekistan", "group":"K", "double_points": False},
+    {"id":46,"date":"2026-06-23", "time":"23:00", "home":"Englanti", "away":"Ghana", "group":"L", "double_points": False},
+    {"id":47,"date":"2026-06-24", "time":"02:00", "home":"Panama", "away":"Kroatia", "group":"L", "double_points": False},
+    {"id":48,"date":"2026-06-24", "time":"05:00", "home":"Kolumbia", "away":"Kongon demokraattinen tasavalta", "group":"K", "double_points": False},
+    {"id":49,"date":"2026-06-24", "time":"22:00", "home":"Sveitsi", "away":"Kanada", "group":"B", "double_points": False},
+    {"id":50,"date":"2026-06-24", "time":"22:00", "home":"Bosnia ja Hertsegovina", "away":"Qatar", "group":"B", "double_points": False},
+    {"id":51,"date":"2026-06-25", "time":"01:00", "home":"Skotlanti", "away":"Brasilia", "group":"C", "double_points": True},   # Lohko C
+    {"id":52,"date":"2026-06-25", "time":"01:00", "home":"Marokko", "away":"Haiti", "group":"C", "double_points": False},
+    {"id":53,"date":"2026-06-25", "time":"04:00", "home":"Tšekki", "away":"Meksiko", "group":"A", "double_points": False},
+    {"id":54,"date":"2026-06-25", "time":"04:00", "home":"Etelä-Afrikka", "away":"Etelä-Korea", "group":"A", "double_points": False},
+    {"id":55,"date":"2026-06-25", "time":"23:00", "home":"Curaçao", "away":"Norsunluurannikko", "group":"E", "double_points": False},
+    {"id":56,"date":"2026-06-25", "time":"23:00", "home":"Ecuador", "away":"Saksa", "group":"E", "double_points": False},
+    {"id":57,"date":"2026-06-26", "time":"02:00", "home":"Japani", "away":"Ruotsi", "group":"F", "double_points": False},
+    {"id":58,"date":"2026-06-26", "time":"02:00", "home":"Tunisia", "away":"Hollanti", "group":"F", "double_points": False},
+    {"id":59,"date":"2026-06-26", "time":"05:00", "home":"Turkki", "away":"USA", "group":"D", "double_points": False},
+    {"id":60,"date":"2026-06-26", "time":"05:00", "home":"Paraguay", "away":"Australia", "group":"D", "double_points": False},
+    {"id":61,"date":"2026-06-26", "time":"22:00", "home":"Norja", "away":"Ranska", "group":"I", "double_points": False},
+    {"id":62,"date":"2026-06-26", "time":"22:00", "home":"Senegal", "away":"Irak", "group":"I", "double_points": False},
+    {"id":63,"date":"2026-06-27", "time":"03:00", "home":"Kap Verde", "away":"Saudi-Arabia", "group":"H", "double_points": False},
+    {"id":64,"date":"2026-06-27", "time":"03:00", "home":"Uruguay", "away":"Espanja", "group":"H", "double_points": True},     # Lohko H
+    {"id":65,"date":"2026-06-27", "time":"06:00", "home":"Egypti", "away":"Iran", "group":"G", "double_points": False},
+    {"id":66,"date":"2026-06-27", "time":"06:00", "home":"Uusi-Seelanti", "away":"Belgia", "group":"G", "double_points": False},
+    {"id":67,"date":"2026-06-28", "time":"00:00", "home":"Panama", "away":"Englanti", "group":"L", "double_points": False},
+    {"id":68,"date":"2026-06-28", "time":"00:00", "home":"Kroatia", "away":"Ghana", "group":"L", "double_points": False},
+    {"id":69,"date":"2026-06-28", "time":"02:30", "home":"Kolumbia", "away":"Portugali", "group":"K", "double_points": True},  # Lohko K
+    {"id":70,"date":"2026-06-28", "time":"02:30", "home":"Kongon demokraattinen tasavalta", "away":"Uzbekistan", "group":"K", "double_points": False},
+    {"id":71,"date":"2026-06-28", "time":"05:00", "home":"Algeria", "away":"Itävalta", "group":"J", "double_points": False},
+    {"id":72,"date":"2026-06-28", "time":"05:00", "home":"Jordania", "away":"Argentiina", "group":"J", "double_points": True}   # Lohko J
 ]
-
 # ====================== ERIKOISKOHTEET ======================
 special_bets = [
     {"id": "most_goals", "name": "1. Mikä maa tekee alkulohkoissa eniten maaleja?", "points": 5, "type": "select"},
@@ -222,6 +224,30 @@ for letter in "ABCDEFGHIJKL":
     special_bets.append({"id": f"group_{letter.lower()}", "name": f"Lohko {letter} voittaja", "points": 3, "type": "select"})
 
 # ====================== FUNKTIOT ======================
+
+def hash_password(password):
+    return hashlib.sha256(password.encode()).hexdigest()
+
+
+def load_json(file_path, default):
+    if os.path.exists(file_path):
+        try:
+            with open(file_path, "r", encoding="utf-8") as f:
+                return json.load(f)
+        except:
+            return default
+    return default
+
+
+def save_json(file_path, data):
+    try:
+        with open(file_path, "w", encoding="utf-8") as f:
+            json.dump(data, f, ensure_ascii=False, indent=2)
+        st.toast("💾 Tallennettu", icon="✅")
+    except:
+        st.error("Tallennus epäonnistui")
+
+
 def get_countdown(match):
     try:
         match_time = datetime.strptime(f"{match['date']} {match['time']}", "%Y-%m-%d %H:%M")
@@ -235,12 +261,15 @@ def get_countdown(match):
     except:
         return "Virhe", False
 
+
 def get_special_bets_countdown():
     return get_countdown(matches[0]) if matches else ("", False)
 
-def calculate_match_points(pred, real):
+
+def calculate_match_points(pred, real, is_double=False):
     """
     pred ja real ovat listoja: [kotimaali, vierasmaali]
+    is_double = True → pisteet tuplataan
     """
     if not pred or not real:
         return 0
@@ -250,37 +279,34 @@ def calculate_match_points(pred, real):
     
     # 1. Täysin oikein
     if p_home == r_home and p_away == r_away:
-        return 8
+        points = 8
     
-    # Oikea voittaja?
-    p_winner = 0 if p_home > p_away else 1 if p_home < p_away else 2
-    r_winner = 0 if r_home > r_away else 1 if r_home < r_away else 2
+    # Oikea voittaja tai tasapeli?
+    elif (p_home > p_away and r_home > r_away) or \
+         (p_home < p_away and r_home < r_away) or \
+         (p_home == p_away and r_home == r_away):
+        
+        # Tasapeli
+        if p_home == p_away:
+            points = 4
+        # 6 pistettä: toisen joukkueen maalit oikein, toisen yhdellä väärin
+        elif (abs(p_home - r_home) == 0 and abs(p_away - r_away) == 1) or \
+             (abs(p_home - r_home) == 1 and abs(p_away - r_away) == 0):
+            points = 6
+        # 5 pistettä: toisen joukkueen maalit täysin oikein
+        elif abs(p_home - r_home) == 0 or abs(p_away - r_away) == 0:
+            points = 5
+        # 3 pistettä: vain oikea voittaja
+        else:
+            points = 3
+    else:
+        points = 0  # Väärä 1X2
     
-    if p_winner != r_winner:
-        return 0  # Väärä voittaja = 0 pistettä
-    
-    # ====================== OIKEA VOITTAJA ======================
-    
-    # 2. Väärä tasapeli (veikkasit tasapelin, mutta väärä maalimäärä)
-    if p_winner == 2:
-        return 4
-    
-    # Oikea voittaja, lasketaan maaliero
-    home_diff = abs(p_home - r_home)
-    away_diff = abs(p_away - r_away)
-    
-    # 3. 6 pistettä: toisen joukkueen maalit täysin oikein, toisen vain yhdellä väärin
-    if (home_diff == 0 and away_diff == 1) or (home_diff == 1 and away_diff == 0):
-        return 6
-    
-    # 4. 5 pistettä: vain toisen joukkueen maalit oikein (toinen ero >1)
-    if home_diff == 0 or away_diff == 0:
-        return 5
-    
-    # 5. 3 pistettä: vain oikea voittaja, molemmat maalimäärät väärin
-    return 3
-
-
+    # Tuplapisteet jos ottelu on merkitty sellaiseksi
+    if is_double:
+        points *= 2
+        
+    return points
 
 # ====================== SIVUPALKKI ======================
 st.sidebar.title("⚽ MM26 - Veikkauskisa")
@@ -559,11 +585,13 @@ if page == "Veikkaustilanne":
     for user in users.keys():
         user_pred = predictions.get(user, {})
         total_points = 0
+        
         for m in matches:
             pred = user_pred.get(str(m['id']))
             real = real_results.get("matches", {}).get(str(m['id']))
             if pred and real:
-                total_points += calculate_match_points(pred, real)
+                is_double = m.get("double_points", False)
+                total_points += calculate_match_points(pred, real, is_double)
         
         user_special = user_pred.get("special", {})
         real_special = real_results.get("special", {})
@@ -633,6 +661,7 @@ if page == "Omat veikkaukset":
                 match_id = str(m['id'])
                 pred = predictions.get(user, {}).get(match_id)
                 real = real_results.get("matches", {}).get(match_id)
+                is_double = m.get("double_points", False)
                 
                 st.markdown(f"**{m['home']} — {m['away']}**")
                 
@@ -659,70 +688,17 @@ if page == "Omat veikkaukset":
                 
                 with col2:
                     if real and pred:
-                        pts = calculate_match_points(pred, real)
+                        pts = calculate_match_points(pred, real, is_double)
+                        if is_double:
+                            pts_text = f"+{pts} <span style='font-size:0.85rem; color:#ffaa00'>(×2)</span>"
+                        else:
+                            pts_text = f"+{pts}"
                         st.markdown(f"""
                             <div style="text-align: center; background: #2a2a4a; color: #ffff88; 
                             font-weight: 700; font-size: 1.6rem; width: 75px; height: 75px; 
                             border-radius: 50%; display: flex; align-items: center; 
                             justify-content: center; margin: 15px auto; box-shadow: 0 0 15px rgba(255,255,136,0.4);">
-                                +{pts}
-                            </div>
-                        """, unsafe_allow_html=True)
-                    elif real:
-                        st.markdown('<div style="text-align: center; color: #666; margin-top: 30px;">0</div>', unsafe_allow_html=True)
-                
-                st.divider()
-
-        # ====================== TAB 2: ERIKOISKOHTEET ======================
-        with tab2:
-            user_special = predictions.get(user, {}).get("special", {})
-            real_special = real_results.get("special", {})
-            
-            for bet in special_bets:
-                pred_value = user_special.get(bet["id"])
-                real_value = real_special.get(bet["id"])
-                
-                question = bet.get('name') or bet.get('question') or bet.get('text', bet["id"])
-                st.markdown(f"**{question}**")
-                
-                col1, col2 = st.columns([3, 1])
-                
-                with col1:
-                    if real_value:
-                        st.markdown(f"""
-                            <div style="font-size: 1.85rem; font-weight: 700; color: #88ffaa; margin: 8px 0 6px 0;">
-                                {real_value}
-                            </div>
-                        """, unsafe_allow_html=True)
-                    else:
-                        st.markdown('<div style="font-size: 1.85rem; color: #555;">–</div>', unsafe_allow_html=True)
-                    
-                    if pred_value:
-                        st.markdown(f"""
-                            <div style="font-size: 1.1rem; color: #aaaaaa;">
-                                Oma veikkaus: {pred_value}
-                            </div>
-                        """, unsafe_allow_html=True)
-                    else:
-                        st.markdown('<div style="font-size: 1.1rem; color: #666;">Ei veikkausta</div>', unsafe_allow_html=True)
-                
-                with col2:
-                    if real_value and pred_value:
-                        user_str = str(pred_value).lower().strip()
-                        real_list = [x.strip().lower() for x in str(real_value).split(",")]
-                        pts = bet.get("points", 6) if user_str in real_list else 0
-                        st.markdown(f"""
-                            <div style="text-align: center; background: #2a2a4a; color: #ffff88; 
-                            font-weight: 700; font-size: 1.55rem; width: 72px; height: 72px; 
-                            border-radius: 50%; display: flex; align-items: center; 
-                            justify-content: center; margin: 15px auto; box-shadow: 0 0 15px rgba(255,255,136,0.4);">
-                                +{pts}
-                            </div>
-                        """, unsafe_allow_html=True)
-                    elif real_value:
-                        st.markdown('<div style="text-align: center; color: #666; margin-top: 30px;">0</div>', unsafe_allow_html=True)
-                
-                st.divider()
+                                {
            
 # ====================== KAIKKIEN VEIKKAUKSET ======================
 if page == "Kaikkien veikkaukset":
@@ -743,13 +719,16 @@ if page == "Kaikkien veikkaukset":
                 match_id = str(m['id'])
                 real = locked_matches.get(match_id)
                 if real:
-                    st.markdown(f"**{m['home']} — {m['away']}** ({m.get('group', '')})")
+                    is_double = m.get("double_points", False)
+                    double_text = " **(×2)**" if is_double else ""
+                    
+                    st.markdown(f"**{m['home']} — {m['away']}** ({m.get('group', '')}){double_text}")
                     st.success(f"Tulos: **{real[0]}–{real[1]}**")
                     
                     for u in sorted(users.keys()):
                         pred = predictions.get(u, {}).get(match_id)
                         if pred:
-                            pts = calculate_match_points(pred, real)
+                            pts = calculate_match_points(pred, real, is_double)
                             st.markdown(f"**{u}**: {pred[0]}–{pred[1]} <span style='color:#00ff9d'>(+{pts}p)</span>", unsafe_allow_html=True)
                     st.divider()
 
@@ -789,14 +768,7 @@ if page == "Kaikkien veikkaukset":
                         if user_pred:
                             user_str = str(user_pred).lower().strip()
                             real_list = [x.strip().lower() for x in str(real_val).split(",")]
-                            pts = bet.get("points", 6) if user_str in real_list else 0
-                            
-                            if pts > 0:
-                                st.markdown(f"**{u}**: {user_pred} <span style='color:#00ff9d'>(+{pts})</span>", unsafe_allow_html=True)
-                            else:
-                                st.markdown(f"**{u}**: {user_pred}", unsafe_allow_html=True)
-                    
-                    st.divider()
+                            pts = bet.get("
 
 
     
