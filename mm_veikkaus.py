@@ -211,6 +211,7 @@ matches = [
     {"id":71,"date":"2026-06-28", "time":"05:00", "home":"Algeria", "away":"Itävalta", "group":"J", "double_points": False},
     {"id":72,"date":"2026-06-28", "time":"05:00", "home":"Jordania", "away":"Argentiina", "group":"J", "double_points": True}   # Lohko J
 ]
+
 # ====================== ERIKOISKOHTEET ======================
 special_bets = [
     {"id": "most_goals", "name": "1. Mikä maa tekee alkulohkoissa eniten maaleja?", "points": 5, "type": "select"},
@@ -218,10 +219,25 @@ special_bets = [
     {"id": "top_scorer", "name": "3. Paras maalintekijä", "points": 10, "type": "text"},
     {"id": "top_scorer_goals", "name": "4. Millä maalimäärällä voitetaan maalintekijäkuninkuus?", "points": 5, "type": "number"},
     {"id": "champion", "name": "5. Maailmanmestari", "points": 10, "type": "select"},
+
+    # Lohkovoittajat
+    *[{"id": f"group_{letter.lower()}", "name": f"Lohko {letter} voittaja", "points": 3, "type": "select"} for letter in "ABCDEFGHIJKL"],
+
+    # Uudet kohteet toiveidesi mukaan
+    {"id": "most_goals_group", "name": "Missä lohkossa tehdään yhteensä eniten maaleja?", "points": 7, "type": "group_select"},
+    {"id": "total_penalties", "name": "Kuinka monta rangaistuspotkua alkulohkoissa tuomitaan yhteensä?", "points": 8, "type": "penalty_range"},
+    {"id": "lowest_xg", "name": "Mikä maa luo vähiten maaliodottamaa (xG) alkulohkojen peleissä?", "points": 7, "type": "select"},
+    {"id": "ronaldo_goals", "name": "Monta maalia Cristiano Ronaldo tekee alkulohkojen peleissä?", "points": 9, "type": "number"},
+
+    # Kyllä/Ei -kohteet
+    {"id": "goal_first_minute", "name": "Tehdäänkö alkulohkojen yhdessäkään ottelussa maalia ensimmäisen peliminuutin aikana?", "points": 8, "type": "yesno"},
+    {"id": "own_goals_5plus", "name": "Tehdäänkö alkulohkojen peleissä vähintään viisi omaa maalia?", "points": 7, "type": "yesno"},
+    {"id": "zero_zero_5plus", "name": "Päättyykö alkulohkojen peleistä vähintään viisi ottelua maalittomaan tasapeliin?", "points": 7, "type": "yesno"},
+    {"id": "red_cards_5plus", "name": "Kirjataanko alkulohkojen peleissä vähintään viisi punaista korttia?", "points": 7, "type": "yesno"},
+    {"id": "free_kick_goal", "name": "Tehdäänkö alkulohkoissa maalia suoraan vapaapotkusta?", "points": 9, "type": "yesno"},
+    {"id": "hat_trick", "name": "Nähdäänkö alkulohkojen peleissä hattutemppu?", "points": 8, "type": "yesno"},
 ]
 
-for letter in "ABCDEFGHIJKL":
-    special_bets.append({"id": f"group_{letter.lower()}", "name": f"Lohko {letter} voittaja", "points": 3, "type": "select"})
 
 # ====================== FUNKTIOT ======================
 
@@ -544,12 +560,11 @@ if page == "Veikkaa erikoiskohteita":
         user = st.session_state.logged_in_user
         real_special = real_results.get("special", {})
         
-        # Tarkistetaan onko erikoiskohteissa YHTÄÄN lukittua tulosta
         if real_special and len(real_special) > 0:
             st.success("✅ Erikoiskohteet ovat lukittu.")
             st.info("Voit tarkastella veikkauksiasi 'Omat veikkaukset' -sivulta.")
         else:
-            st.subheader("Veikkaa erikoiskohteita")
+            st.subheader("🏆 Veikkaa erikoiskohteita")
             st.caption("Erikoiskohteet ovat avoinna")
             
             user_special = predictions.get(user, {}).get("special", {})
@@ -565,21 +580,40 @@ if page == "Veikkaa erikoiskohteita":
                 if real_value:
                     st.success(f"Toteutunut vastaus: **{real_value}**")
                 else:
-                    # Veikkauslomake
-                    if bet["id"] in ["most_goals", "most_cards", "champion"]:
+                    # Eri tyyppien käsittely
+                    if bet["type"] == "yesno":
+                        value = st.radio("Valitse:", ["Kyllä", "Ei"], horizontal=True, 
+                                       key=f"spec_{bet_id}", label_visibility="collapsed")
+                    
+                    elif bet["type"] == "group_select":
+                        groups = ["A","B","C","D","E","F","G","H","I","J","K","L"]
+                        value = st.selectbox("Valitse lohko", options=groups, 
+                                           key=f"spec_{bet_id}", label_visibility="collapsed")
+                    
+                    elif bet["type"] == "penalty_range":
+                        options = ["0-10", "11-20", "21-30", "31+"]
+                        value = st.selectbox("Valitse vaihtoehto", options=options, 
+                                           key=f"spec_{bet_id}", label_visibility="collapsed")
+                    
+                    elif bet["id"] in ["most_goals", "most_cards", "champion", "lowest_xg", 
+                                     "most_penalties_scored", "most_sub_goals", "most_corners", 
+                                     "most_first_half_goals"]:
                         value = st.selectbox("Valitse maa", options=countries, 
                                            key=f"spec_{bet_id}", label_visibility="collapsed")
-                    elif bet["id"] == "top_scorer":
-                        value = st.text_input("Pelaajan nimi", key=f"spec_{bet_id}", label_visibility="collapsed")
-                    elif bet["id"] == "top_scorer_goals":
-                        value = st.selectbox("Maalimäärä", options=list(range(1,21)), 
-                                           key=f"spec_{bet_id}", label_visibility="collapsed")
+                    
                     elif bet["id"].startswith("group_"):
                         group_letter = bet["id"].split("_")[1].upper()
                         group_matches = [m for m in matches if m.get("group") == group_letter]
                         group_teams = sorted(set([m["home"] for m in group_matches] + [m["away"] for m in group_matches]))
                         value = st.selectbox("Lohkovoittaja", options=group_teams, 
                                            key=f"spec_{bet_id}", label_visibility="collapsed")
+                    
+                    elif bet["type"] == "number" or bet["id"] in ["ronaldo_goals"]:
+                        value = st.number_input("Anna numero", min_value=0, max_value=20, value=0, 
+                                              key=f"spec_{bet_id}", label_visibility="collapsed")
+                    
+                    elif bet["id"] == "top_scorer":
+                        value = st.text_input("Pelaajan nimi", key=f"spec_{bet_id}", label_visibility="collapsed")
                     else:
                         value = st.text_input("Vastaus", key=f"spec_{bet_id}", label_visibility="collapsed")
                     
