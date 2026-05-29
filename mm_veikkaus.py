@@ -651,7 +651,7 @@ if page == "Omat veikkaukset":
         st.warning("Kirjaudu ensin sisään!")
     else:
         user = st.session_state.logged_in_user
-        st.subheader(f"OMAT VEIKKAUKSET")
+        st.subheader(f"OMAT VEIKKAUKSET - {user}")
         
         tab1, tab2 = st.tabs(["Otteluveikkaukset", "Erikoiskohteet"])
         
@@ -669,36 +669,56 @@ if page == "Omat veikkaukset":
                 
                 with col1:
                     if real:
-                        st.markdown(f"""
-                            <div style="font-size: 1.9rem; font-weight: 700; color: #88ffaa; margin: 8px 0 6px 0;">
-                                {real[0]}–{real[1]}
-                            </div>
-                        """, unsafe_allow_html=True)
+                        st.markdown(f"**Tulos:** {real[0]}–{real[1]}")
                     else:
-                        st.markdown('<div style="font-size: 1.9rem; color: #555;">–</div>', unsafe_allow_html=True)
+                        st.write("Tulos ei vielä saatavilla")
                     
                     if pred:
-                        st.markdown(f"""
-                            <div style="font-size: 1.1rem; color: #aaaaaa;">
-                                Oma veikkaus: {pred[0]}–{pred[1]}
-                            </div>
-                        """, unsafe_allow_html=True)
+                        st.write(f"Oma veikkaus: **{pred[0]}–{pred[1]}**")
                     else:
-                        st.markdown('<div style="font-size: 1.1rem; color: #666;">Ei veikkausta</div>', unsafe_allow_html=True)
+                        st.write("Ei veikkausta")
                 
                 with col2:
                     if real and pred:
                         pts = calculate_match_points(pred, real, is_double)
-                        if is_double:
-                            pts_text = f"+{pts} <span style='font-size:0.85rem; color:#ffaa00'>(×2)</span>"
-                        else:
-                            pts_text = f"+{pts}"
-                        st.markdown(f"""
-                            <div style="text-align: center; background: #2a2a4a; color: #ffff88; 
-                            font-weight: 700; font-size: 1.6rem; width: 75px; height: 75px; 
-                            border-radius: 50%; display: flex; align-items: center; 
-                            justify-content: center; margin: 15px auto; box-shadow: 0 0 15px rgba(255,255,136,0.4);">
-                                {
+                        double_note = " (×2)" if is_double else ""
+                        st.success(f"**+{pts} pistettä**{double_note}")
+                    elif real:
+                        st.info("0 pistettä")
+                
+                st.divider()
+
+        # ====================== TAB 2: ERIKOISKOHTEET ======================
+        with tab2:
+            user_special = predictions.get(user, {}).get("special", {})
+            real_special = real_results.get("special", {})
+            
+            for bet in special_bets:
+                pred_value = user_special.get(bet["id"])
+                real_value = real_special.get(bet["id"])
+                
+                question = bet.get('name', bet["id"])
+                st.markdown(f"**{question}**")
+                
+                col1, col2 = st.columns([3, 1])
+                
+                with col1:
+                    if real_value:
+                        st.success(f"Toteutunut: **{real_value}**")
+                    if pred_value:
+                        st.write(f"Oma veikkaus: {pred_value}")
+                    else:
+                        st.write("Ei veikkausta")
+                
+                with col2:
+                    if real_value and pred_value:
+                        user_str = str(pred_value).lower().strip()
+                        real_list = [x.strip().lower() for x in str(real_value).split(",")]
+                        pts = bet.get("points", 6) if user_str in real_list else 0
+                        if pts > 0:
+                            st.success(f"+{pts}p")
+                
+                st.divider()
            
 # ====================== KAIKKIEN VEIKKAUKSET ======================
 if page == "Kaikkien veikkaukset":
