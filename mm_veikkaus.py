@@ -231,10 +231,10 @@ special_bets = [
 
     # Kyllä/Ei -kohteet
     {"id": "goal_first_minute", "name": "Tehdäänkö alkulohkojen yhdessäkään ottelussa maalia ensimmäisen peliminuutin aikana?", "points": 3, "type": "yesno"},
-    {"id": "own_goals_5plus", "name": "Tehdäänkö alkulohkojen peleissä vähintään kuusi omaa maalia?", "points": 3, "type": "yesno"},
-    {"id": "zero_zero_5plus", "name": "Päättyykö alkulohkojen peleistä vähintään kuusi ottelua maalittomaan tasapeliin?", "points": 3, "type": "yesno"},
-    {"id": "red_cards_5plus", "name": "Kirjataanko alkulohkojen peleissä vähintään kuusi suoraa punaista korttia?", "points": 3, "type": "yesno"},
-    {"id": "free_kick_goal", "name": "Tehdäänkö alkulohkoissa maalia suoraan vapaapotkusta?", "points": 3, "type": "yesno"},
+    {"id": "own_goals_5plus", "name": "Tehdäänkö alkulohkojen peleissä vähintään kuusi omaa maalia (0-5=ei)?", "points": 3, "type": "yesno"},
+    {"id": "zero_zero_5plus", "name": "Päättyykö alkulohkojen peleistä vähintään kuusi ottelua maalittomaan tasapeliin (0-5=ei)?", "points": 3, "type": "yesno"},
+    {"id": "red_cards_5plus", "name": "Kirjataanko alkulohkojen peleissä vähintään kuusi suoraa punaista korttia (0-5=ei)?", "points": 3, "type": "yesno"},
+    {"id": "free_kick_goal", "name": "Tehdäänkö alkulohkojen otteluissa vähintään kolme maalia suoraan vapaapotkusta (0-2=ei)?", "points": 3, "type": "yesno"},
     {"id": "hat_trick", "name": "Nähdäänkö alkulohkojen peleissä hattutemppu?", "points": 3, "type": "yesno"},
 ]
 
@@ -591,7 +591,7 @@ if page == "Veikkaa erikoiskohteita":
                                            key=f"spec_{bet_id}", label_visibility="collapsed")
                     
                     elif bet["type"] == "penalty_range":
-                        options = ["0-10", "11-20", "21-30", "31+"]
+                        options = ["0-10", "11-15", "16-20", "21+"]
                         value = st.selectbox("Valitse vaihtoehto", options=options, 
                                            key=f"spec_{bet_id}", label_visibility="collapsed")
                     
