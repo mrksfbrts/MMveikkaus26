@@ -233,7 +233,7 @@ special_bets = [
     {"id": "goal_first_minute", "name": "Tehdäänkö alkulohkojen yhdessäkään ottelussa maalia ensimmäisen peliminuutin aikana?", "points": 3, "type": "yesno"},
     {"id": "own_goals_5plus", "name": "Tehdäänkö alkulohkojen peleissä vähintään kuusi omaa maalia?", "points": 3, "type": "yesno"},
     {"id": "zero_zero_5plus", "name": "Päättyykö alkulohkojen peleistä vähintään kuusi ottelua maalittomaan tasapeliin?", "points": 3, "type": "yesno"},
-    {"id": "red_cards_5plus", "name": "Kirjataanko alkulohkojen peleissä vähintään kuusi suoraa punaista korttia?", "points": 3, "type": "yesno"},
+    {"id": "red_cards_5plus", "name": "Kirjataanko alkulohkojen peleissä vähintään si suoraa punaista korttia?", "points": 3, "type": "yesno"},
     {"id": "free_kick_goal", "name": "Tehdäänkö alkulohkoissa maalia suoraan vapaapotkusta?", "points": 3, "type": "yesno"},
     {"id": "hat_trick", "name": "Nähdäänkö alkulohkojen peleissä hattutemppu?", "points": 3, "type": "yesno"},
 ]
@@ -474,8 +474,7 @@ if page == "Säännöt":
     st.markdown("---")
     
     st.subheader("Erikoiskohteet")
-    st.write("** MUISTA VEIKATA ERIKOISKOHTEET ENNEN KISOJEN ALKUA! 
-Jokaiselle erikoiskohteelle on määritelty omat pistemääränsä oikein veikatessa (3-10). Ne näkyvät veikkausta tehtäessä. Erikoiskohteista saatavat pisteet rekisteröityvät veikkaustilanteeseen heti kun kohde on ratkennut. Muutamassa erikoiskohteessa voidaan päätyä tilanteeseen, jossa useampi eri veikkaus on oikein. Tällöin tietenkin pisteet tulevat kaikista näistä veikkauksista samanarvoisesti.**")
+    st.write("**Jokaiselle erikoiskohteelle on määritelty omat pistemääränsä oikein veikatessa (3-10). Ne näkyvät veikkausta tehtäessä. Erikoiskohteista saatavat pisteet rekisteröityvät veikkaustilanteeseen heti kun kohde on ratkennut. Muutamassa erikoiskohteessa voidaan päätyä tilanteeseen, jossa useampi eri veikkaus on oikein. Tällöin tietenkin pisteet tulevat kaikista näistä veikkauksista samanarvoisesti.**")
     
     st.markdown("---")
     st.caption("""
