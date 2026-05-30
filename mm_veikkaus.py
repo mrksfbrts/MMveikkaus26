@@ -90,121 +90,37 @@ st.markdown("""
 </style>
 """, unsafe_allow_html=True)
 
-# ====================== TIETOKANTA (SQLite) ======================
-import sqlite3
+# ====================== TIEDOSTOT ======================
+USERS_FILE = "users.json"
+PREDICTIONS_FILE = "predictions.json"
+RESULTS_FILE = "real_results.json"
 
-DB_FILE = "veikkaus.db"
+def hash_password(password):
+    return hashlib.sha256(password.encode()).hexdigest()
 
-def init_db():
-    conn = sqlite3.connect(DB_FILE)
-    c = conn.cursor()
-    
-    # Users-taulu
-    c.execute('''CREATE TABLE IF NOT EXISTS users (
-                    username TEXT PRIMARY KEY,
-                    password_hash TEXT NOT NULL,
-                    created_at TEXT DEFAULT CURRENT_TIMESTAMP
-                 )''')
-    
-    # Predictions-taulu
-    c.execute('''CREATE TABLE IF NOT EXISTS predictions (
-                    username TEXT,
-                    match_id TEXT,
-                    prediction TEXT,
-                    is_special INTEGER DEFAULT 0,
-                    created_at TEXT DEFAULT CURRENT_TIMESTAMP,
-                    PRIMARY KEY (username, match_id, is_special)
-                 )''')
-    
-    # Real results -taulu
-    c.execute('''CREATE TABLE IF NOT EXISTS real_results (
-                    result_type TEXT,   -- "match" tai "special"
-                    id TEXT,
-                    result TEXT,
-                    updated_at TEXT DEFAULT CURRENT_TIMESTAMP,
-                    PRIMARY KEY (result_type, id)
-                 )''')
-    
-    conn.commit()
-    conn.close()
-
-
-def get_db_connection():
-    conn = sqlite3.connect(DB_FILE)
-    conn.row_factory = sqlite3.Row
-    return conn
-
-
-# Alusta tietokanta
-init_db()
-
-# ====================== VANHAN DATAN MIGRAATIO ======================
-def migrate_from_json():
-    """Siirtää vanhat JSON-tiedostot SQLiteen (suoritetaan kerran)"""
-    conn = get_db_connection()
-    c = conn.cursor()
-    
-    # Migroi users
-    if os.path.exists(USERS_FILE):
+def load_json(file_path, default):
+    if os.path.exists(file_path):
         try:
-            with open(USERS_FILE, "r", encoding="utf-8") as f:
-                users_data = json.load(f)
-            for username, pw_hash in users_data.items():
-                c.execute("INSERT OR REPLACE INTO users (username, password_hash) VALUES (?, ?)", 
-                         (username, pw_hash))
+            with open(file_path, "r", encoding="utf-8") as f:
+                return json.load(f)
         except:
-            pass
-    
-    # Migroi predictions
-    if os.path.exists(PREDICTIONS_FILE):
-        try:
-            with open(PREDICTIONS_FILE, "r", encoding="utf-8") as f:
-                preds = json.load(f)
-            for username, user_preds in preds.items():
-                # Otteluvedot
-                for match_id, pred in user_preds.items():
-                    if match_id != "special":
-                        c.execute("INSERT OR REPLACE INTO predictions (username, match_id, prediction, is_special) VALUES (?, ?, ?, 0)",
-                                 (username, match_id, json.dumps(pred)))
-                # Erikoiskohteet
-                if "special" in user_preds:
-                    for bet_id, value in user_preds["special"].items():
-                        c.execute("INSERT OR REPLACE INTO predictions (username, match_id, prediction, is_special) VALUES (?, ?, ?, 1)",
-                                 (username, bet_id, value))
-        except:
-            pass
-    
-    # Migroi real_results
-    if os.path.exists(RESULTS_FILE):
-        try:
-            with open(RESULTS_FILE, "r", encoding="utf-8") as f:
-                results = json.load(f)
-            # Ottelut
-            for mid, res in results.get("matches", {}).items():
-                c.execute("INSERT OR REPLACE INTO real_results (result_type, id, result) VALUES ('match', ?, ?)",
-                         (mid, json.dumps(res)))
-            # Erikoiskohteet
-            for bid, res in results.get("special", {}).items():
-                c.execute("INSERT OR REPLACE INTO real_results (result_type, id, result) VALUES ('special', ?, ?)",
-                         (bid, res))
-        except:
-            pass
-    
-    conn.commit()
-    conn.close()
-    st.toast("✅ Vanha data siirretty SQLiteen", icon="📦")
+            return default
+    return default
 
+def save_json(file_path, data):
+    try:
+        with open(file_path, "w", encoding="utf-8") as f:
+            json.dump(data, f, ensure_ascii=False, indent=2)
+        st.toast("💾 Tallennettu", icon="✅")
+    except:
+        st.error("Tallennus epäonnistui")
 
-# Suorita migraatio ensimmäisellä käynnistyksellä
-if not os.path.exists(DB_FILE) or os.path.getsize(DB_FILE) < 1000:
-    migrate_from_json()
+users = load_json(USERS_FILE, {})
+predictions = load_json(PREDICTIONS_FILE, {})
+real_results = load_json(RESULTS_FILE, {})
 
-# ====================== MUUTTUJIEN ALUSTUS ======================
 if "logged_in_user" not in st.session_state:
     st.session_state.logged_in_user = None
-
-# Ladataan käyttäjät tietokannasta
-users = get_all_users()
 
 # ====================== MAAT ======================
 countries = sorted([
@@ -524,7 +440,7 @@ if page == "Kirjaudu / Rekisteröidy":
                         st.error("Käyttäjänimi on jo käytössä")
                     else:
                         users[new_user] = hash_password(new_pass)
-                        save_user(new_user, users[new_user])   # SQLite-tallennus
+                        save_json(USERS_FILE, users)
                         st.success("Tunnus luotu onnistuneesti! Voit nyt kirjautua sisään.")
 
 # ====================== SÄÄNNÖT ======================
