@@ -492,7 +492,7 @@ if page == "Kirjaudu / Rekisteröidy":
     else:
         tab1, tab2 = st.tabs(["Kirjaudu sisään", "Luo uusi tunnus"])
         
-               with tab1:  # Kirjautuminen
+        with tab1:  # Kirjautuminen
             st.subheader("Kirjaudu sisään")
             col = st.columns([1, 2, 1])[1]
             with col:
@@ -524,7 +524,7 @@ if page == "Kirjaudu / Rekisteröidy":
                         st.error("Käyttäjänimi on jo käytössä")
                     else:
                         users[new_user] = hash_password(new_pass)
-                        save_json(USERS_FILE, users)
+                        save_user(new_user, users[new_user])   # SQLite-tallennus
                         st.success("Tunnus luotu onnistuneesti! Voit nyt kirjautua sisään.")
 
 # ====================== SÄÄNNÖT ======================
