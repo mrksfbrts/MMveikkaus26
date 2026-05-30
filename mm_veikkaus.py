@@ -214,28 +214,28 @@ matches = [
 
 # ====================== ERIKOISKOHTEET ======================
 special_bets = [
-    {"id": "most_goals", "name": "1. Mikä maa tekee alkulohkoissa eniten maaleja?", "points": 5, "type": "select"},
-    {"id": "most_cards", "name": "2. Mikä maa saa alkulohkoissa eniten varoituksia?", "points": 5, "type": "select"},
-    {"id": "top_scorer", "name": "3. Paras maalintekijä", "points": 10, "type": "text"},
-    {"id": "top_scorer_goals", "name": "4. Millä maalimäärällä voitetaan maalintekijäkuninkuus?", "points": 5, "type": "number"},
-    {"id": "champion", "name": "5. Maailmanmestari", "points": 10, "type": "select"},
+    {"id": "most_goals", "name": "Mikä maa tekee alkulohkoissa eniten maaleja?", "points": 5, "type": "select"},
+    {"id": "most_cards", "name": "Mikä maa saa alkulohkoissa eniten varoituksia?", "points": 5, "type": "select"},
+    {"id": "top_scorer", "name": "Paras maalintekijä", "points": 10, "type": "text"},
+    {"id": "top_scorer_goals", "name": "Millä maalimäärällä voitetaan maalintekijäkuninkuus?", "points": 5, "type": "number"},
+    {"id": "champion", "name": "Maailmanmestari?", "points": 10, "type": "select"},
 
     # Lohkovoittajat
     *[{"id": f"group_{letter.lower()}", "name": f"Lohko {letter} voittaja", "points": 3, "type": "select"} for letter in "ABCDEFGHIJKL"],
 
     # Uudet kohteet toiveidesi mukaan
-    {"id": "most_goals_group", "name": "Missä lohkossa tehdään yhteensä eniten maaleja?", "points": 7, "type": "group_select"},
-    {"id": "total_penalties", "name": "Kuinka monta rangaistuspotkua alkulohkoissa tuomitaan yhteensä?", "points": 8, "type": "penalty_range"},
-    {"id": "lowest_xg", "name": "Mikä maa luo vähiten maaliodottamaa (xG) alkulohkojen peleissä?", "points": 7, "type": "select"},
-    {"id": "ronaldo_goals", "name": "Monta maalia Cristiano Ronaldo tekee alkulohkojen peleissä?", "points": 9, "type": "number"},
+    {"id": "most_goals_group", "name": "Missä lohkossa tehdään yhteensä eniten maaleja?", "points": 5, "type": "group_select"},
+    {"id": "total_penalties", "name": "Kuinka monta rangaistuspotkua alkulohkoissa tuomitaan yhteensä?", "points": 3, "type": "penalty_range"},
+    {"id": "lowest_xg", "name": "Mikä maa luo vähiten maaliodottamaa (xG) alkulohkojen peleissä?", "points": 5, "type": "select"},
+    {"id": "ronaldo_goals", "name": "Monta maalia Cristiano Ronaldo tekee alkulohkojen peleissä?", "points": 3, "type": "number"},
 
     # Kyllä/Ei -kohteet
-    {"id": "goal_first_minute", "name": "Tehdäänkö alkulohkojen yhdessäkään ottelussa maalia ensimmäisen peliminuutin aikana?", "points": 8, "type": "yesno"},
-    {"id": "own_goals_5plus", "name": "Tehdäänkö alkulohkojen peleissä vähintään viisi omaa maalia?", "points": 7, "type": "yesno"},
-    {"id": "zero_zero_5plus", "name": "Päättyykö alkulohkojen peleistä vähintään viisi ottelua maalittomaan tasapeliin?", "points": 7, "type": "yesno"},
-    {"id": "red_cards_5plus", "name": "Kirjataanko alkulohkojen peleissä vähintään viisi punaista korttia?", "points": 7, "type": "yesno"},
-    {"id": "free_kick_goal", "name": "Tehdäänkö alkulohkoissa maalia suoraan vapaapotkusta?", "points": 9, "type": "yesno"},
-    {"id": "hat_trick", "name": "Nähdäänkö alkulohkojen peleissä hattutemppu?", "points": 8, "type": "yesno"},
+    {"id": "goal_first_minute", "name": "Tehdäänkö alkulohkojen yhdessäkään ottelussa maalia ensimmäisen peliminuutin aikana?", "points": 3, "type": "yesno"},
+    {"id": "own_goals_5plus", "name": "Tehdäänkö alkulohkojen peleissä vähintään kuusi omaa maalia?", "points": 3, "type": "yesno"},
+    {"id": "zero_zero_5plus", "name": "Päättyykö alkulohkojen peleistä vähintään kuusi ottelua maalittomaan tasapeliin?", "points": 3, "type": "yesno"},
+    {"id": "red_cards_5plus", "name": "Kirjataanko alkulohkojen peleissä vähintään kuusi suoraa punaista korttia?", "points": 3, "type": "yesno"},
+    {"id": "free_kick_goal", "name": "Tehdäänkö alkulohkoissa maalia suoraan vapaapotkusta?", "points": 3, "type": "yesno"},
+    {"id": "hat_trick", "name": "Nähdäänkö alkulohkojen peleissä hattutemppu?", "points": 3, "type": "yesno"},
 ]
 
 
@@ -474,7 +474,8 @@ if page == "Säännöt":
     st.markdown("---")
     
     st.subheader("Erikoiskohteet")
-    st.write("**Jokaiselle erikoiskohteelle on määritelty omat pistemääränsä oikein veikatessa (3-10). Ne näkyvät veikkausta tehtäessä. Erikoiskohteista saatavat pisteet rekisteröityvät veikkaustilanteeseen heti kun kohde on ratkennut. Muutamassa erikoiskohteessa voidaan päätyä tilanteeseen, jossa useampi eri veikkaus on oikein. Tällöin tietenkin pisteet tulevat kaikista näistä veikkauksista samanarvoisesti.**")
+    st.write("** MUISTA VEIKATA ERIKOISKOHTEET ENNEN KISOJEN ALKUA! 
+Jokaiselle erikoiskohteelle on määritelty omat pistemääränsä oikein veikatessa (3-10). Ne näkyvät veikkausta tehtäessä. Erikoiskohteista saatavat pisteet rekisteröityvät veikkaustilanteeseen heti kun kohde on ratkennut. Muutamassa erikoiskohteessa voidaan päätyä tilanteeseen, jossa useampi eri veikkaus on oikein. Tällöin tietenkin pisteet tulevat kaikista näistä veikkauksista samanarvoisesti.**")
     
     st.markdown("---")
     st.caption("""
