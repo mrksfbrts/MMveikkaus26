@@ -199,8 +199,12 @@ def migrate_from_json():
 if not os.path.exists(DB_FILE) or os.path.getsize(DB_FILE) < 1000:
     migrate_from_json()
 
+# ====================== MUUTTUJIEN ALUSTUS ======================
 if "logged_in_user" not in st.session_state:
     st.session_state.logged_in_user = None
+
+# Ladataan käyttäjät tietokannasta
+users = get_all_users()
 
 # ====================== MAAT ======================
 countries = sorted([
@@ -488,7 +492,7 @@ if page == "Kirjaudu / Rekisteröidy":
     else:
         tab1, tab2 = st.tabs(["Kirjaudu sisään", "Luo uusi tunnus"])
         
-        with tab1:  # Kirjautuminen
+               with tab1:  # Kirjautuminen
             st.subheader("Kirjaudu sisään")
             col = st.columns([1, 2, 1])[1]
             with col:
