@@ -482,9 +482,9 @@ if page == "Veikkaa otteluita":
                 if is_double:
                     st.markdown("""
                         <div style="background: linear-gradient(90deg, #2a1f0f, #3a2a10); 
-                                    border: 2px solid #ffcc00; border-radius: 5px; 
-                                    padding: 5px 10px; margin: 12px 590px; display: inline-block;">
-                            <span style="color:#ffcc00; font-weight:700;"> Veikkauskohteesta tuplapisteet! </span>
+                                    border: 2px solid #ffcc00; border-radius: 8px; 
+                                    padding: 2px 10px; margin: 16px 0px; display: inline-block;">
+                            <span style="color:#ffcc00; font-weight:600;"> Veikkauskohteesta tuplapisteet </span>
                         </div>
                     """, unsafe_allow_html=True)
                 
@@ -492,7 +492,7 @@ if page == "Veikkaa otteluita":
                 
                 # Aikarivi
                 st.markdown(f"""
-                    <div style="background-color: #1e2a44; padding: 10px 15px; border-radius: 5px; 
+                    <div style="background-color: #1e2a44; padding: 10px 15px; border-radius: 10px; 
                                 border-left: 4px solid #00ff9d; margin: 8px 0;">
                         <span style="color: #00ff9d; font-weight: 600;">
                              {match_date} klo {m['time']}
@@ -509,7 +509,7 @@ if page == "Veikkaa otteluita":
                     if current_pred:
                         st.markdown(f"""
                             <div style="background-color: #00cc7a; color: #0a0f1c; 
-                                        padding: 8px 14px; border-radius: 6px; 
+                                        padding: 8px 14px; border-radius: 12px; 
                                         font-weight: 700; font-size: 1.35rem; 
                                         text-align: center;">
                                 {current_pred[0]}–{current_pred[1]}
