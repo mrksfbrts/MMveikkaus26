@@ -192,7 +192,7 @@ special_bets = [
     {"id": "fastest_goal", "name": "Missä ajassa tehdään alkulohkopelien nopein avausmaali?", "points": 4, "type": "select", "options": ["Alle 1 min", "1–3 min", "Yli 3 min"]},
     {"id": "messi_vs_ronaldo", "name": "Kumpi tekee enemmän maaleja alkulohkojen peleissä, Messi vai Ronaldo?", "points": 4, "type": "select", "options": ["Messi", "Yhtä monta", "Ronaldo"]},
 
-    {"id": "top_scorer", "name": "Kuka on kisojen maalikuningas?", "points": 10, "type": "text"},
+    {"id": "top_scorer", "name": "Kuka on kisojen maalikuningas (sukunimi)?", "points": 10, "type": "text"},
     {"id": "top_scorer_goals", "name": "Millä maalimäärällä maalikuninkuus voitetaan?", "points": 6, "type": "number"},
     {"id": "champion", "name": "Mikä maa voittaa mestaruuden?", "points": 10, "type": "select"},
 ]
@@ -377,8 +377,9 @@ if page == "Veikkaa erikoiskohteita":
             st.success("✅ Erikoiskohteet ovat lukittu.")
             st.info("Erikoiskohteiden veikkaus sulkeutui 15 minuuttia ennen turnauksen avausottelua.")
         else:
-            st.markdown('<p style="color:#aaaaaa; margin-bottom: 30px;">Erikoiskohteet sulkeutuvat 15 minuuttia ennen turnauksen avausottelun alkua.</p>', unsafe_allow_html=True)
+
             
+
             user_special = predictions.get(user, {}).get("special", {})
             
             for bet in special_bets:
@@ -563,7 +564,6 @@ if page == "Veikkaa otteluita":
                 
                 st.divider()
 
-      
 # ====================== OMAT VEIKKAUKSET ======================
 if page == "Omat veikkaukset":
     if not st.session_state.get("logged_in_user"):
@@ -576,32 +576,55 @@ if page == "Omat veikkaukset":
         
         # ====================== OTTELUVEIKKAUKSET ======================
         with tab1:
+            st.caption("")
             for m in matches:
                 match_id = str(m['id'])
                 pred = predictions.get(user, {}).get(match_id)
                 real = real_results.get("matches", {}).get(match_id)
                 is_double = m.get("double_points", False)
                 
-                st.markdown(f"**{m['home']} — {m['away']}**")
+                st.markdown(f"**{m['home']} — {m['away']}**  ({m.get('group', '')})")
                 
-                col1, col2 = st.columns([4.6, 0.3])
-                with col1:
-                    if real:
-                        st.write(f"Tulos: **{real[0]}–{real[1]}**")
+                
+                
+                cols = st.columns([0.4, 0.2, 0.2, 1.0])
+                with cols[0]:
                     if pred:
                         st.write(f"Oma veikkaus: **{pred[0]}–{pred[1]}**")
+                    else:
+                        st.write("Ei veikkausta")
                 
-                with col2:
+                with cols[1]:
+                    if real:
+                        st.success(f"Tulos: **{real[0]}–{real[1]}**")
+                
+                with cols[2]:
                     if real and pred:
                         pts = calculate_match_points(pred, real, is_double)
-                        st.success(f"**+{pts}**")
+                        st.markdown(f"""
+                            <div style="background-color: #00cc7a; color: #0a0f1c; 
+                                        padding: 15px 12px; border-radius: 6px; 
+                                        font-weight: 700; text-align: center;">
+                                +{pts}
+                            </div>
+                        """, unsafe_allow_html=True)
                     elif real:
-                        st.success("**+0**")
+                        st.markdown(f"""
+                            <div style="background-color: #334466; color: #aaaaaa; 
+                                        padding: 8px 12px; border-radius: 6px; 
+                                        text-align: center;">
+                                +0
+                            </div>
+                        """, unsafe_allow_html=True)
+                
+                if is_double:
+                    st.caption("★ Tuplapisteet")
                 
                 st.divider()
 
         # ====================== ERIKOISKOHTEET ======================
         with tab2:
+            st.caption("")
             user_special = predictions.get(user, {}).get("special", {})
             real_special = real_results.get("special", {})
             
@@ -611,16 +634,19 @@ if page == "Omat veikkaukset":
                 
                 st.markdown(f"**{bet['name']}**")
                 
-                col1, col2 = st.columns([4.6, 0.2])
-                with col1:
+                
+                cols = st.columns([0.6, 0.6, 0.3, 1.2])
+                with cols[0]:
                     if pred_value:
                         st.write(f"Oma veikkaus: **{pred_value}**")
                     else:
                         st.write("Ei veikkausta")
+                
+                with cols[1]:
                     if real_value:
                         st.success(f"Toteutunut: **{real_value}**")
                 
-                with col2:
+                with cols[2]:
                     if real_value and pred_value:
                         points = 0
                         pred_str = str(pred_value).strip().lower()
@@ -636,9 +662,21 @@ if page == "Omat veikkaukset":
                                 points = bet.get("points", 0)
                         
                         if points > 0:
-                            st.success(f"**+{points}**")
+                            st.markdown(f"""
+                                <div style="background-color: #00cc7a; color: #0a0f1c; 
+                                            padding: 15px 16px; border-radius: 8px; 
+                                            font-weight: 700; text-align: center;">
+                                    +{points}
+                                </div>
+                            """, unsafe_allow_html=True)
                         else:
-                            st.success("**+0**")
+                            st.markdown(f"""
+                                <div style="background-color: #00cc7a; color: #0a0f1c; 
+                                            padding: 15px 16px; border-radius: 8px; 
+                                            font-weight: 700; text-align: center;">
+                                    +0
+                                </div>
+                            """, unsafe_allow_html=True)
                 
                 st.divider()
 
@@ -766,7 +804,7 @@ if page == "Kaikkien veikkaukset":
                 if pred:
                     if real:
                         pts = calculate_match_points(pred, real, is_double)
-                        st.write(f"**{u}**: {pred[0]}–{pred[1]}  **(+{pts}p)**")
+                        st.write(f"**{u}**: {pred[0]}–{pred[1]}")
                     else:
                         st.write(f"**{u}**: {pred[0]}–{pred[1]}")
             
@@ -787,7 +825,7 @@ if page == "Kaikkien veikkaukset":
             st.markdown(f"**{bet['name']}**")
             
             if real_val:
-                st.success(f"Oikea vastaus: **{real_val}**")
+                st.success(f"Toteutunut: **{real_val}**")
             else:
                 st.info("Kohde on sulkeutunut – tulos odottaa")
             
@@ -811,7 +849,7 @@ if page == "Kaikkien veikkaukset":
    
 # ====================== ADMIN ======================
 if page == "Admin":
-    st.subheader("🛠️ Admin-paneeli")
+    st.subheader("")
     
     ADMIN_PASSWORD = "admin123"  # ← VAIHDA TÄHÄN TURVALLISEEN SALASANAAN!
     
@@ -828,27 +866,30 @@ if page == "Admin":
     
     st.success("✅ Olet admin-tilassa")
     
-    admin_tab = st.radio("Valitse toiminto", 
+    admin_tab = st.radio("", 
                         ["Ottelujen tulokset", 
                          "Erikoiskohteiden tulokset", 
                          "Manuaalinen pistekorjaus",
+                         "Pelaajien hallinta",
                          "Varmuuskopiointi"], 
                         horizontal=True)
-    
+
     # ====================== OTTELUJEN TULOKSET ======================
     if admin_tab == "Ottelujen tulokset":
-        st.write("### Ottelujen tulosten syöttö")
+        st.write("###")
         for m in matches:
             match_id = str(m['id'])
             current_real = real_results.get("matches", {}).get(match_id)
             
-            col1, col2, col3, col4 = st.columns([3, 1.5, 1.5, 1])
+            col1, col2, col3, col4 = st.columns([1, 0.4, 0.4, 1.2])
             with col1:
                 st.write(f"**{m['home']} — {m['away']}**")
             with col2:
-                h = st.number_input("Koti", 0, 20, value=current_real[0] if current_real else 0, key=f"ah_{match_id}")
+                h = st.number_input("", 0, 20, value=current_real[0] if current_real else 0, 
+                                  key=f"ah_{match_id}")
             with col3:
-                a = st.number_input("Vieras", 0, 20, value=current_real[1] if current_real else 0, key=f"aa_{match_id}")
+                a = st.number_input("", 0, 20, value=current_real[1] if current_real else 0, 
+                                  key=f"aa_{match_id}")
             with col4:
                 if st.button("Tallenna", key=f"save_{match_id}"):
                     if "matches" not in real_results:
@@ -858,7 +899,7 @@ if page == "Admin":
                     st.success(f"Tallennettu: {m['home']} {h}–{a} {m['away']}")
                     st.rerun()
                 
-                if current_real and st.button("🗑️ Poista", key=f"del_{match_id}"):
+                if current_real and st.button("Poista", key=f"del_{match_id}"):
                     real_results["matches"].pop(match_id, None)
                     save_json(RESULTS_FILE, real_results)
                     st.success("Tulos poistettu")
@@ -867,7 +908,7 @@ if page == "Admin":
 
     # ====================== ERIKOISKOHTEIDEN TULOKSET ======================
     elif admin_tab == "Erikoiskohteiden tulokset":
-        st.write("### Erikoiskohteiden tulosten syöttö")
+        st.write("###  ")
         for bet in special_bets:
             bet_id = bet["id"]
             current = real_results.get("special", {}).get(bet_id)
@@ -892,20 +933,22 @@ if page == "Admin":
                     st.rerun()
             st.divider()
 
-    # ====================== MANUAALINEN PISTEKORJAUS ======================
+    # ====================== MANUAALINEN PISTEKORJAUS (PÄIVITETTY) ======================
     elif admin_tab == "Manuaalinen pistekorjaus":
-        st.write("### Manuaalinen pistekorjaus")
-        st.caption("Käytä tätä esim. bugien korjaamiseen")
+        st.write("###")
+        st.caption("Korjaa pelaajan pistemäärä")
         
         col1, col2 = st.columns([1, 1])
         with col1:
-            selected_user = st.selectbox("Valitse pelaaja", options=list(users.keys()), key="manual_user")
+            selected_user = st.selectbox("", options=list(users.keys()), key="manual_user")
         with col2:
-            points = st.number_input("Pisteet (+ tai -)", value=0, step=1, key="manual_points")
+            points = st.number_input("", value=0, step=1, key="manual_points")
         
-        reason = st.text_area("Syy / selite (pakollinen)", placeholder="esim. Bugi ottelussa #4", key="manual_reason")
+        reason = st.text_area("(Syy korjaukselle)", 
+                            placeholder="esim. Bugi tai tekninen virhe", 
+                            key="manual_reason", height=80)
         
-        if st.button("✅ Tallenna pistekorjaus", type="primary", use_container_width=True):
+        if st.button("Tallenna", type="primary", use_container_width=True):
             if not reason or reason.strip() == "":
                 st.error("Anna syy pistekorjaukselle!")
             else:
@@ -921,16 +964,71 @@ if page == "Admin":
                 }
                 real_results["manual_corrections"][selected_user].append(correction)
                 save_json(RESULTS_FILE, real_results)
-                st.success(f"✅ {points} pistettä lisätty pelaajalle **{selected_user}**")
+                
+                sign = "+" if points >= 0 else ""
+                st.success(f"✅ {sign}{points} pistettä lisätty pelaajalle **{selected_user}**")
                 st.rerun()
+
+        # ====================== LOKIKIRJA ======================
+        st.divider()
+        st.write("### Tehdyt pistekorjaukset")
+        
+        corrections = real_results.get("manual_corrections", {})
+        if corrections:
+            for user in sorted(corrections.keys()):
+                user_corrections = corrections[user]
+                if user_corrections:
+                    with st.expander(f"**{user}** — {len(user_corrections)} korjausta", expanded=True):
+                        for c in reversed(user_corrections):   # uusimmat ensin
+                            sign = "+" if c["points"] >= 0 else ""
+                            st.write(f"**{sign}{c['points']} p** | {c['timestamp']} | {c['reason']}")
+        else:
+            st.info("Ei vielä yhtään pistekorjausta.")
+
+       # ====================== PELAAJIEN HALLINTA ======================
+    elif admin_tab == "Pelaajien hallinta":
+        st.write("")
+        st.caption("Poista pelaaja veikkauskisasta")
+        
+        selected_user = st.selectbox("", 
+                                   options=list(users.keys()), 
+                                   key="delete_user_select")
+        
+        # Vahvistus checkbox aina näkyvissä
+        confirm = st.checkbox(f"Olen varma, että haluan poistaa pelaajan **{selected_user}** ", 
+                             key="confirm_delete")
+        
+        if st.button("Poista pelaaja", type="primary", use_container_width=True):
+            if confirm:
+                # Poistetaan pelaaja
+                if selected_user in users:
+                    del users[selected_user]
+                if selected_user in predictions:
+                    del predictions[selected_user]
+                if real_results.get("manual_corrections") and selected_user in real_results["manual_corrections"]:
+                    del real_results["manual_corrections"][selected_user]
+                
+                save_json(USERS_FILE, users)
+                save_json(PREDICTIONS_FILE, predictions)
+                save_json(RESULTS_FILE, real_results)
+                
+                st.success(f"✅ Pelaaja **{selected_user}** on poistettu kokonaan!")
+                st.rerun()
+            else:
+                st.error("Et rastittanut vahvistusruutua. Poistoa ei suoritettu.")
+        
+        st.divider()
+        st.write("#### Nykyiset pelaajat")
+        for user in sorted(users.keys()):
+            st.write(f"• **{user}**")
 
     # ====================== VARMUUSKOPIOINTI ======================
     else:
-        st.write("### 💾 Varmuuskopiointi")
-        st.info("Varmuuskopio tallentuu **sinun omalle koneellesi**. Suositellaan otettavaksi heti erikoiskohteiden sulkeuduttua.")
+        st.write("### ")
+        st.info("Varmuuskopio tallentuu **sinun omalle koneellesi**. Tarvittaessa käyttäkää kopiota pisteiden lisäämiseen manuaalisesti.")
         
-        st.write("#### Luo varmuuskopio")
-        if st.button("💾 Lataa täydellinen varmuuskopio", type="primary", use_container_width=True):
+        st.write("")
+        if st.button("Lataa kopio kaikkien veikkauksista", type="primary", use_container_width=True):
             backup = {
                 "users": users,
                 "predictions": predictions,
@@ -946,9 +1044,8 @@ if page == "Admin":
             )
         
         st.divider()
-        
         st.write("#### Palauta varmuuskopio")
-        uploaded = st.file_uploader("Lataa aiempi varmuuskopiotiedosto (.json)", type="json")
+        uploaded = st.file_uploader("", type="json")
         if uploaded is not None:
             if st.button("⚠️ Korvaa kaikki tiedostot tällä varmuuskopiolla", type="primary", use_container_width=True):
                 try:
@@ -966,4 +1063,4 @@ if page == "Admin":
                     st.success("✅ Varmuuskopio palautettu onnistuneesti!")
                     st.rerun()
                 except Exception as e:
-                    st.error(f"Virhe tiedoston palautuksessa: {e}")
+                    st.error(f"Virhe palautuksessa: {e}")
