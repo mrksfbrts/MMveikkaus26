@@ -642,9 +642,10 @@ if page == "Omat veikkaukset":
                 
                 st.divider()
 
+
 # ====================== VEIKKAUSTILANNE ======================
 if page == "Veikkaustilanne":
-    st.subheader("              VEIKKAUSTILANNE")
+    st.subheader("VEIKKAUSTILANNE")
     
     leaderboard = []
     for username in users.keys():
@@ -676,45 +677,63 @@ if page == "Veikkaustilanne":
                 elif pred_str == real_str or pred_str in real_str or real_str in pred_str:
                     total += bet.get("points", 0)
         
-        leaderboard.append({"Nimi": username, "Pisteet": total})
+        # Manuaaliset pistekorjaukset
+        manual_points = 0
+        if real_results.get("manual_corrections"):
+            user_corrections = real_results["manual_corrections"].get(username, [])
+            manual_points = sum(c["points"] for c in user_corrections)
+        
+        total += manual_points
+        
+        leaderboard.append({
+            "Nimi": username, 
+            "Pisteet": total,
+            "Manuaaliset": manual_points
+        })
     
     leaderboard.sort(key=lambda x: x["Pisteet"], reverse=True)
     
-    # Tyylikäs leaderboard
+    # Näyttö
     for i, entry in enumerate(leaderboard, 1):
         rank_color = "#aaaaaa" if i == 1 else "#aaaaaa" if i == 2 else "#aaaaaa" if i == 3 else "#aaaaaa"
         
-        cols = st.columns([0.4, 0.5, 2.8])
+        cols = st.columns([0.5, 1.5, 1.2, 1])
         
         with cols[0]:
             st.markdown(f"""
-                <div style="text-align: center; font-size: 1.9rem; font-weight: 800; 
-                            color: {rank_color}; margin-top: 30px;">
-                    {i}
+                <div style="text-align: center; font-size: 2.2rem; font-weight: 800; 
+                            color: {rank_color}; margin-top: 20px;">
+                    {i}.
                 </div>
             """, unsafe_allow_html=True)
         
         with cols[1]:
             st.markdown(f"""
-                <div style="font-size: 1.55rem; font-weight: 600; margin-top: 36px;">
+                <div style="font-size: 1.6rem; font-weight: 600; margin-top: 28px;">
                     {entry['Nimi']}
                 </div>
             """, unsafe_allow_html=True)
         
         with cols[2]:
             st.markdown(f"""
-                <div style="background-color: ; color: #00ff9d; font-size: 3.0rem; 
-                            font-weight: 500; padding: 14px 20px; border-radius: 0px; 
-                            text-align: center; box-shadow: 0 0px 0px rgba(0, 255, 157, 0.15);">
+                <div style="background-color: #0a0f1c; color: #aaaaaa; font-size: 2.4rem; 
+                            font-weight: 700; padding: 12px 20px; border-radius: 8px; 
+                            text-align: center;">
                     {entry['Pisteet']}
                 </div>
             """, unsafe_allow_html=True)
         
-        # Ohut erotinviiva
-        st.markdown("""
-            <div style="height: 2px; background: linear-gradient(to right, transparent, #334466, transparent); 
-                        margin: 10px 15px;"></div>
-        """, unsafe_allow_html=True)
+        # Manuaaliset pisteet (jos on)
+        if entry['Manuaaliset'] != 0:
+            sign = "+" if entry['Manuaaliset'] > 0 else ""
+            with cols[3]:
+                st.markdown(f"""
+                    <div style="margin-top: 35px; font-size: 1.1rem; color: #ffcc00;">
+                        {sign}{entry['Manuaaliset']} (korjaus)
+                    </div>
+                """, unsafe_allow_html=True)
+        
+        st.markdown("<hr style='margin: 8px 0; border-color: #1e2a44;'>", unsafe_allow_html=True)
 
 # ====================== KAIKKIEN VEIKKAUKSET ======================
 if page == "Kaikkien veikkaukset":
@@ -794,7 +813,7 @@ if page == "Kaikkien veikkaukset":
 if page == "Admin":
     st.subheader("🛠️ Admin-paneeli")
     
-    ADMIN_PASSWORD = "admin123"  # ← VAIHDA TÄHÄN TURVALLINEN SALASANA!
+    ADMIN_PASSWORD = "admin123"  # ← VAIHDA TÄHÄN TURVALLISEEN SALASANAAN!
     
     if not st.session_state.get("is_admin", False):
         pw = st.text_input("Syötä admin-salasana", type="password", key="admin_login")
@@ -809,8 +828,14 @@ if page == "Admin":
     
     st.success("✅ Olet admin-tilassa")
     
-    admin_tab = st.radio("Valitse toiminto", ["Ottelujen tulokset", "Erikoiskohteiden tulokset"], horizontal=True)
+    admin_tab = st.radio("Valitse toiminto", 
+                        ["Ottelujen tulokset", 
+                         "Erikoiskohteiden tulokset", 
+                         "Manuaalinen pistekorjaus",
+                         "Varmuuskopiointi"], 
+                        horizontal=True)
     
+    # ====================== OTTELUJEN TULOKSET ======================
     if admin_tab == "Ottelujen tulokset":
         st.write("### Ottelujen tulosten syöttö")
         for m in matches:
@@ -821,11 +846,9 @@ if page == "Admin":
             with col1:
                 st.write(f"**{m['home']} — {m['away']}**")
             with col2:
-                h = st.number_input("Koti", 0, 20, value=current_real[0] if current_real else 0, 
-                                  key=f"ah_{match_id}")
+                h = st.number_input("Koti", 0, 20, value=current_real[0] if current_real else 0, key=f"ah_{match_id}")
             with col3:
-                a = st.number_input("Vieras", 0, 20, value=current_real[1] if current_real else 0, 
-                                  key=f"aa_{match_id}")
+                a = st.number_input("Vieras", 0, 20, value=current_real[1] if current_real else 0, key=f"aa_{match_id}")
             with col4:
                 if st.button("Tallenna", key=f"save_{match_id}"):
                     if "matches" not in real_results:
@@ -841,8 +864,9 @@ if page == "Admin":
                     st.success("Tulos poistettu")
                     st.rerun()
             st.divider()
-    
-    else:  # Erikoiskohteiden tulokset
+
+    # ====================== ERIKOISKOHTEIDEN TULOKSET ======================
+    elif admin_tab == "Erikoiskohteiden tulokset":
         st.write("### Erikoiskohteiden tulosten syöttö")
         for bet in special_bets:
             bet_id = bet["id"]
@@ -867,3 +891,79 @@ if page == "Admin":
                     st.success("Poistettu")
                     st.rerun()
             st.divider()
+
+    # ====================== MANUAALINEN PISTEKORJAUS ======================
+    elif admin_tab == "Manuaalinen pistekorjaus":
+        st.write("### Manuaalinen pistekorjaus")
+        st.caption("Käytä tätä esim. bugien korjaamiseen")
+        
+        col1, col2 = st.columns([1, 1])
+        with col1:
+            selected_user = st.selectbox("Valitse pelaaja", options=list(users.keys()), key="manual_user")
+        with col2:
+            points = st.number_input("Pisteet (+ tai -)", value=0, step=1, key="manual_points")
+        
+        reason = st.text_area("Syy / selite (pakollinen)", placeholder="esim. Bugi ottelussa #4", key="manual_reason")
+        
+        if st.button("✅ Tallenna pistekorjaus", type="primary", use_container_width=True):
+            if not reason or reason.strip() == "":
+                st.error("Anna syy pistekorjaukselle!")
+            else:
+                if "manual_corrections" not in real_results:
+                    real_results["manual_corrections"] = {}
+                if selected_user not in real_results["manual_corrections"]:
+                    real_results["manual_corrections"][selected_user] = []
+                
+                correction = {
+                    "points": int(points),
+                    "reason": reason.strip(),
+                    "timestamp": datetime.now().strftime("%Y-%m-%d %H:%M")
+                }
+                real_results["manual_corrections"][selected_user].append(correction)
+                save_json(RESULTS_FILE, real_results)
+                st.success(f"✅ {points} pistettä lisätty pelaajalle **{selected_user}**")
+                st.rerun()
+
+    # ====================== VARMUUSKOPIOINTI ======================
+    else:
+        st.write("### 💾 Varmuuskopiointi")
+        st.info("Varmuuskopio tallentuu **sinun omalle koneellesi**. Suositellaan otettavaksi heti erikoiskohteiden sulkeuduttua.")
+        
+        st.write("#### Luo varmuuskopio")
+        if st.button("💾 Lataa täydellinen varmuuskopio", type="primary", use_container_width=True):
+            backup = {
+                "users": users,
+                "predictions": predictions,
+                "real_results": real_results,
+                "timestamp": datetime.now().strftime("%Y-%m-%d %H:%M:%S")
+            }
+            st.download_button(
+                label="📥 Lataa backup.json",
+                data=json.dumps(backup, ensure_ascii=False, indent=2),
+                file_name=f"mm26_backup_{datetime.now().strftime('%Y%m%d_%H%M')}.json",
+                mime="application/json",
+                use_container_width=True
+            )
+        
+        st.divider()
+        
+        st.write("#### Palauta varmuuskopio")
+        uploaded = st.file_uploader("Lataa aiempi varmuuskopiotiedosto (.json)", type="json")
+        if uploaded is not None:
+            if st.button("⚠️ Korvaa kaikki tiedostot tällä varmuuskopiolla", type="primary", use_container_width=True):
+                try:
+                    backup_data = json.load(uploaded)
+                    users.clear()
+                    users.update(backup_data.get("users", {}))
+                    predictions.clear()
+                    predictions.update(backup_data.get("predictions", {}))
+                    real_results.clear()
+                    real_results.update(backup_data.get("real_results", {}))
+                    
+                    save_json(USERS_FILE, users)
+                    save_json(PREDICTIONS_FILE, predictions)
+                    save_json(RESULTS_FILE, real_results)
+                    st.success("✅ Varmuuskopio palautettu onnistuneesti!")
+                    st.rerun()
+                except Exception as e:
+                    st.error(f"Virhe tiedoston palautuksessa: {e}")
