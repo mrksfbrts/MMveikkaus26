@@ -170,7 +170,7 @@ matches = [
 special_bets = [
     {"id": "zero_zero_over", "name": "Alkulohkovaiheessa pelattujen maalittomien tasapelien (0–0) kokonaismäärä", "points": 4, "type": "over_under", "options": ["Yli 5,5", "Alle 5,5"]},
     {"id": "penalties_over", "name": "Alkulohkovaiheessa tuomittujen rangaistuspotkujen kokonaismäärä", "points": 4, "type": "over_under", "options": ["Yli 23,5", "Alle 23,5"]},
-    {"id": "own_goals_over", "name": "Alkulohkoissa tehtyjen omien maalien kokonaismäärä", "points": 4, "type": "over_under", "options": ["Yli 6,5", "Alle 6,5"]},
+    {"id": "own_goals_over", "name": "Alkulohkovaiheessa tehtyjen omien maalien kokonaismäärä", "points": 4, "type": "over_under", "options": ["Yli 6,5", "Alle 6,5"]},
     {"id": "free_kick_goals_over", "name": "Alkulohkovaiheessa tehtyjen suorien vapaapotkumaalien kokonaismäärä", "points": 4, "type": "over_under", "options": ["Yli 2,5", "Alle 2,5"]},
     {"id": "red_cards_over", "name": "Suorien punaisten korttien kokonaismäärä alkulohkovaiheessa", "points": 4, "type": "over_under", "options": ["Yli 4,5", "Alle 4,5"]},
     {"id": "total_goals_over", "name": "Kokonaismaalimäärä kaikissa alkulohko-otteluissa (72 ottelua)", "points": 4, "type": "over_under", "options": ["Yli 199,5", "Alle 199,5"]},
@@ -414,7 +414,7 @@ if page == "Veikkaa erikoiskohteita":
                 input_cols = st.columns([0.1, 0.8, 2.3])
                 with input_cols[1]:
                     if bet.get("multi") is True:
-                        selected = st.multiselect("Valitse kaksi maata (kumpi tahansa osuessa pisteet)", 
+                        selected = st.multiselect("Valitse kaksi maata", 
                                                 countries, 
                                                 default=[x.strip() for x in str(current_pred).split(",")] if current_pred else [],
                                                 key=f"spec_{bet_id}",
