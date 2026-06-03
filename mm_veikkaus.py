@@ -170,9 +170,9 @@ matches = [
 special_bets = [
     {"id": "zero_zero_over", "name": "Alkulohkovaiheessa pelattujen maalittomien tasapelien (0–0) kokonaismäärä", "points": 4, "type": "over_under", "options": ["Yli 5,5", "Alle 5,5"]},
     {"id": "penalties_over", "name": "Alkulohkovaiheessa tuomittujen rangaistuspotkujen kokonaismäärä", "points": 4, "type": "over_under", "options": ["Yli 23,5", "Alle 23,5"]},
-    {"id": "own_goals_over", "name": "Alkulohkovaiheessa tehtyjen omien maalien kokonaismäärä", "points": 4, "type": "over_under", "options": ["Yli 6,5", "Alle 6,5"]},
+    {"id": "own_goals_over", "name": "Alkulohkovaiheessa tehtyjen omien maalien kokonaismäärä", "points": 4, "type": "over_under", "options": ["Yli 5,5", "Alle 5,5"]},
     {"id": "free_kick_goals_over", "name": "Alkulohkovaiheessa tehtyjen suorien vapaapotkumaalien kokonaismäärä", "points": 4, "type": "over_under", "options": ["Yli 2,5", "Alle 2,5"]},
-    {"id": "red_cards_over", "name": "Suorien punaisten korttien kokonaismäärä alkulohkovaiheessa", "points": 4, "type": "over_under", "options": ["Yli 4,5", "Alle 4,5"]},
+    {"id": "red_cards_over", "name": "Suorien punaisten korttien kokonaismäärä alkulohkovaiheessa", "points": 4, "type": "over_under", "options": ["Yli 5,5", "Alle 5,5"]},
     {"id": "total_goals_over", "name": "Kokonaismaalimäärä kaikissa alkulohko-otteluissa (72 ottelua)", "points": 4, "type": "over_under", "options": ["Yli 199,5", "Alle 199,5"]},
 
     {"id": "most_goals_group", "name": "Alkulohkojen maalirikkain lohko", "points": 6, "type": "group_select"},
@@ -320,7 +320,7 @@ if page == "Säännöt":
     st.subheader("Otteluveikkaukset")
     st.markdown("""
     Veikkauskohteista saa pisteitä vain, jos veikattu tulos (1X2) on oikein. Lopullinen pistemäärä määrittyy sen mukaisesti, kuinka lähelle oikeaa tulosta olet veikannut. 
-Jokaisessa lohkossa on yksi tuplapisteet antava ottelu (yhteensä siis 12 kpl), joka on kaikille veikkaajille sama. Veikkauskohde sulkeutuu aina 15 minuuttia ennen ottelun alkua, siihen asti veikkausta voi käydä vaihtamassa niin monesti kuin hyvältä tuntuu. Tuorein veikkauksesi päivittyy aina Omat veikkaukset- valikkoon. Pisteet veikkauksista tulevat alla olevan taulukon mukaisesti. 
+Jokaisessa lohkossa on yksi tuplapisteet antava ottelu (yhteensä siis 12 kpl), joka on kaikille veikkaajille sama. Veikkauskohde sulkeutuu aina 15 minuuttia ennen ottelun alkua, siihen asti veikkausta voi käydä vaihtamassa vapaasti. Tuorein veikkaus näkyy veikkauskohteen kohdalla ja päivittyy aina Omat veikkaukset- valikkoon. Pisteet veikkauksista tulevat alla olevan taulukon mukaisesti. 
     """)
     
     # Tyylikäs pistetaulukko
@@ -329,7 +329,7 @@ Jokaisessa lohkossa on yksi tuplapisteet antava ottelu (yhteensä siis 12 kpl), 
             "Täysin oikein",
             "Oikea voittaja + yhden joukkueen maalit oikein ja toisen vain yhdellä pielessä",
             "Oikea voittaja + yhden joukkueen maalit oikein ja toisen yli yhdellä pielessä",
-            "Oikea tasapeli, mutta maalit väärin",
+            "Tasapeli oikein, mutta maalit väärin",
             "Vain oikea voittaja, molempien joukkueiden maalit väärin",
             "Väärä 1X2"
         ],
@@ -686,6 +686,7 @@ if page == "Veikkaustilanne":
     st.subheader("VEIKKAUSTILANNE")
     
     leaderboard = []
+    
     for username in users.keys():
         user_pred = predictions.get(username, {})
         total = 0
@@ -715,11 +716,10 @@ if page == "Veikkaustilanne":
                 elif pred_str == real_str or pred_str in real_str or real_str in pred_str:
                     total += bet.get("points", 0)
         
-        # Manuaaliset pistekorjaukset
+        # Manuaaliset korjaukset
         manual_points = 0
         if real_results.get("manual_corrections"):
-            user_corrections = real_results["manual_corrections"].get(username, [])
-            manual_points = sum(c["points"] for c in user_corrections)
+            manual_points = sum(c["points"] for c in real_results["manual_corrections"].get(username, []))
         
         total += manual_points
         
@@ -731,47 +731,50 @@ if page == "Veikkaustilanne":
     
     leaderboard.sort(key=lambda x: x["Pisteet"], reverse=True)
     
-    # Näyttö
+    # Yksinkertainen yhteenveto
+    st.info(f"**Otteluveikkaukset:** {len(real_results.get('matches', {}))}/{len(matches)}   |   "
+            f"**Erikoiskohteet:** {len(real_results.get('special', {}))}/{len(special_bets)}")
+    
+    st.divider()
+    
+    # Pisteiden top-lista
+    st.write("")
+    
     for i, entry in enumerate(leaderboard, 1):
         rank_color = "#aaaaaa" if i == 1 else "#aaaaaa" if i == 2 else "#aaaaaa" if i == 3 else "#aaaaaa"
         
-        cols = st.columns([0.5, 1.5, 1.2, 1])
+        cols = st.columns([0.1, 0.5, 1.0])
         
         with cols[0]:
             st.markdown(f"""
-                <div style="text-align: center; font-size: 2.2rem; font-weight: 800; 
-                            color: {rank_color}; margin-top: 20px;">
+                <div style="text-align: center; font-size: 2.1rem; font-weight: 800; 
+                            color: {rank_color}; margin-top: 18px;">
                     {i}.
                 </div>
             """, unsafe_allow_html=True)
         
         with cols[1]:
             st.markdown(f"""
-                <div style="font-size: 1.6rem; font-weight: 600; margin-top: 28px;">
+                <div style="font-size: 1.65rem; font-weight: 600; margin-top: 26px;">
                     {entry['Nimi']}
                 </div>
             """, unsafe_allow_html=True)
         
         with cols[2]:
             st.markdown(f"""
-                <div style="background-color: #0a0f1c; color: #aaaaaa; font-size: 2.4rem; 
-                            font-weight: 700; padding: 12px 20px; border-radius: 8px; 
+                <div style="background-color: #0a0f1c; color: #aaaaaa; font-size: 2.6rem; 
+                            font-weight: 700; padding: 4px 24px; border-radius: 80px; 
                             text-align: center;">
                     {entry['Pisteet']}
                 </div>
             """, unsafe_allow_html=True)
         
-        # Manuaaliset pisteet (jos on)
         if entry['Manuaaliset'] != 0:
             sign = "+" if entry['Manuaaliset'] > 0 else ""
-            with cols[3]:
-                st.markdown(f"""
-                    <div style="margin-top: 35px; font-size: 1.1rem; color: #ffcc00;">
-                        {sign}{entry['Manuaaliset']} (korjaus)
-                    </div>
-                """, unsafe_allow_html=True)
+            st.caption(f"  Manuaalikorjaus: {sign}{entry['Manuaaliset']} pistettä")
         
-        st.markdown("<hr style='margin: 8px 0; border-color: #1e2a44;'>", unsafe_allow_html=True)
+        st.markdown("<hr style='margin: 12px 0; border-color: #1e2a44;'>", unsafe_allow_html=True)
+
 
 # ====================== KAIKKIEN VEIKKAUKSET ======================
 if page == "Kaikkien veikkaukset":
@@ -851,7 +854,7 @@ if page == "Kaikkien veikkaukset":
 if page == "Admin":
     st.subheader("")
     
-    ADMIN_PASSWORD = "admin123"  # ← VAIHDA TÄHÄN TURVALLISEEN SALASANAAN!
+    ADMIN_PASSWORD = "haamuhanska2026"  # ← VAIHDA TÄHÄN TURVALLISEEN SALASANAAN!
     
     if not st.session_state.get("is_admin", False):
         pw = st.text_input("Syötä admin-salasana", type="password", key="admin_login")
