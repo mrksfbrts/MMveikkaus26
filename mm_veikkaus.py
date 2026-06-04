@@ -775,6 +775,58 @@ if page == "Veikkaustilanne":
         
         st.markdown("<hr style='margin: 12px 0; border-color: #1e2a44;'>", unsafe_allow_html=True)
 
+     # ====================== KOMMENTTIKENTTÄ ======================
+    st.subheader("")
+    
+    COMMENTS_FILE = "comments.json"
+    comments = load_json(COMMENTS_FILE, default=[])
+    
+    # Näytetään kommentit ensin
+    st.write("**📣 Ajatuksia? Sana on vapaa!**")
+    if comments:
+        for c in reversed(comments[-40:]):   # 40 uusinta kommenttia
+            st.markdown(f"""
+                <div style="background-color: #1e2a44; padding: 20px 20px; border-radius: 12px; 
+                            margin-bottom: 22px; border-left: 12px solid #00ff9d;">
+                    <strong>{c['user']}</strong> 
+                    <span style="color:#888; font-size:0.75rem;">{c['time']}</span><br>
+                    {c['text']}
+                </div>
+            """, unsafe_allow_html=True)
+    else:
+        st.info("Ei vielä kommentteja. Ole ensimmäinen!")
+    
+    st.divider()
+ # Uusi kommentti
+    if st.session_state.logged_in_user:
+        st.write("")
+        with st.form("comment_form", clear_on_submit=True):
+            new_comment = st.text_area(
+                "Kommenttisi...", 
+                height=120, 
+                max_chars=600,           # ← Tässä on maksimipituus
+                placeholder="Anna palaa.... 🔥 (max 600 merkkiä)"
+            )
+            
+            
+            
+            submitted = st.form_submit_button(" 💥 Julkaise kommenttisi 💥", use_container_width=True)
+            
+            if submitted and new_comment.strip():
+                if len(new_comment) > 600:
+                    st.error("Kommentti on liian pitkä!")
+                else:
+                    comment = {
+                        "user": st.session_state.logged_in_user,
+                        "text": new_comment.strip(),
+                        "time": datetime.now().strftime("%d.%m. %H:%M")
+                    }
+                    comments.append(comment)
+                    save_json(COMMENTS_FILE, comments)
+                    st.success("✅ Kommentti lähetetty!")
+                    st.rerun()
+    else:
+        st.warning("Kirjaudu sisään kirjoittaaksesi kommentteja.")    
 
 # ====================== KAIKKIEN VEIKKAUKSET ======================
 if page == "Kaikkien veikkaukset":
