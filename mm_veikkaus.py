@@ -6,35 +6,106 @@ import os
 from datetime import datetime, timedelta
 
 st.set_page_config(
-    page_title="MM26 Veikkaus",
-    page_icon="⚽",
+    page_title="HAAMUHANSKA",
+    page_icon="💰",
     layout="wide",
     initial_sidebar_state="expanded"
 )
 
-# ====================== TYYLITTELY ======================
 st.markdown("""
 <style>
-    .stApp { background-color: #0a0f1c; color: #e0e0e0; }
-    h1 { color: #00ff9d; font-weight: 700; letter-spacing: -0.02em; }
-    h2, h3 { color: #ffffff; font-weight: 600; }
-    section[data-testid="stSidebar"] { background-color: #0f1629; border-right: 1px solid #1e2a44; }
-    .stButton button { 
-        background-color: #00ff9d; color: #0a0f1c; font-weight: 700; 
-        border-radius: 8px; height: 48px; transition: all 0.3s;
+    /* Vihreät napit kaikille sivuille */
+    .stButton button {
+        background-color: #00ff9d !important;
+        color: #0a0f1c !important;
+        font-weight: 700;
+        border: none;
     }
-    .stButton button:hover { background-color: #00cc7a; transform: translateY(-2px); }
-    .etusivu_text {
-        text-align: center; font-size: 6.5rem; font-weight: 900;
-        background: linear-gradient(90deg, #00ff9d, #4d9fff);
-        -webkit-background-clip: text; -webkit-text-fill-color: transparent;
-        margin: 60px 0 20px 0; text-shadow: 0 0 60px rgba(0, 255, 157, 0.5);
+    .stButton button:hover {
+        background-color: #00cc7a !important;
     }
-    @media (max-width: 768px) {
-        .etusivu_text { font-size: 3.8rem; margin: 40px 0 15px 0; }
+    
+    /* Erityisesti "Kirjaudu ulos" ja "Päivitä veikkaus" */
+    button[kind="secondary"] {
+        background-color: #00ff9d !important;
+        color: #0a0f1c !important;
     }
 </style>
 """, unsafe_allow_html=True)
+
+# ====================== GLOBAALI TYYLITTELY ======================
+st.markdown("""
+<style>
+    .stApp {
+        background-image: url("https://i.imgur.com/r4bYzli.jpg");
+        background-size: cover;
+        background-position: center;
+        background-attachment: fixed;
+    }
+    .stApp::before {
+        content: "";
+        position: absolute;
+        top: 0;
+        left: 0;
+        width: 100%;
+        height: 100%;
+        background: linear-gradient(rgba(10,15,28,0.75), rgba(10,15,28,0.88));
+        z-index: 0;
+    }
+    
+    /* Pakotetaan valkoinen raja sivupalkkiin */
+    section[data-testid="stSidebar"] {
+        background-color: #05080f !important;
+        border-right: 2px solid #e0e0e0 !important;
+        box-shadow: 3px 0 15px rgba(224, 224, 224, 0.1) !important;
+    }
+    
+    .block-container {
+        position: relative;
+        z-index: 1;
+    }
+</style>
+""", unsafe_allow_html=True)
+
+
+# ====================== TYYLITTELY ======================
+st.markdown("""
+    <style>
+    .stApp {
+        background-image: url("https://i.imgur.com/r4bYzli.jpg");
+        background-size: cover;
+        background-position: center;
+        background-attachment: fixed;
+    }
+    .stApp::before {
+        content: "";
+        position: absolute;
+        top: 0;
+        left: 0;
+        width: 100%;
+        height: 100%;
+        background: linear-gradient(rgba(10,15,28,0.85), rgba(10,15,28,0.92));
+        z-index: 0;
+    }
+
+    /* === SIVUPALKKI + RAJA === */
+    section[data-testid="stSidebar"] {
+        background-color: #05080f !important;
+        border-right: 3px solid rgba(0, 255, 157, 0.4);   /* Vihreä raja */
+        box-shadow: 4px 0 15px rgba(0, 255, 157, 0.15);
+    }
+    /* ======================== */
+
+    /* Muut tyylit (lomake jne.) */
+    .stTabs [data-testid="stTabPanel"] {
+        background-color: #05080f !important;
+        border-radius: 16px;
+        padding: 40px 35px;
+        max-width: 420px !important;
+        margin: 40px auto !important;
+    }
+    </style>
+    """, unsafe_allow_html=True)
 
 # ====================== TIEDOSTOT ======================
 USERS_FILE = "users.json"
@@ -122,8 +193,8 @@ matches = [
     {"id":28,"date":"2026-06-19", "time":"04:00", "home":"Meksiko", "away":"Etelä-Korea", "group":"A", "double_points": True}, # Lohko A
     {"id":29,"date":"2026-06-19", "time":"22:00", "home":"USA", "away":"Australia", "group":"D", "double_points": False},
     {"id":30,"date":"2026-06-20", "time":"01:00", "home":"Skotlanti", "away":"Marokko", "group":"C", "double_points": False},
-    {"id":31,"date":"2026-06-20", "time":"04:00", "home":"Brasilia", "away":"Haiti", "group":"C", "double_points": False},
-    {"id":32,"date":"2026-06-20", "time":"07:00", "home":"Turkki", "away":"Paraguay", "group":"D", "double_points": False},
+    {"id":31,"date":"2026-06-20", "time":"03:30", "home":"Brasilia", "away":"Haiti", "group":"C", "double_points": False},
+    {"id":32,"date":"2026-06-20", "time":"06:00", "home":"Turkki", "away":"Paraguay", "group":"D", "double_points": False},
     {"id":33,"date":"2026-06-20", "time":"20:00", "home":"Hollanti", "away":"Ruotsi", "group":"F", "double_points": False},
     {"id":34,"date":"2026-06-20", "time":"23:00", "home":"Saksa", "away":"Norsunluurannikko", "group":"E", "double_points": False},
     {"id":35,"date":"2026-06-21", "time":"03:00", "home":"Ecuador", "away":"Curaçao", "group":"E", "double_points": True},    # Lohko E
@@ -163,8 +234,41 @@ matches = [
     {"id":69,"date":"2026-06-28", "time":"02:30", "home":"Kolumbia", "away":"Portugali", "group":"K", "double_points": True},  # Lohko K
     {"id":70,"date":"2026-06-28", "time":"02:30", "home":"Kongon demokraattinen tasavalta", "away":"Uzbekistan", "group":"K", "double_points": False},
     {"id":71,"date":"2026-06-28", "time":"05:00", "home":"Algeria", "away":"Itävalta", "group":"J", "double_points": False},
-    {"id":72,"date":"2026-06-28", "time":"05:00", "home":"Jordania", "away":"Argentiina", "group":"J", "double_points": True}   # Lohko J
+    {"id":72,"date":"2026-06-28", "time":"05:00", "home":"Jordania", "away":"Argentiina", "group":"J", "double_points": True},
+    {"id":73, "date":"2026-06-28", "time":"22:00", "home":"TBA", "away":"TBA", "round":"Round of 32", "double_points": False},
+    {"id":74, "date":"2026-06-29", "time":"20:00", "home":"TBA", "away":"TBA", "round":"Round of 32", "double_points": False},
+    {"id":75, "date":"2026-06-29", "time":"23:30", "home":"TBA", "away":"TBA", "round":"Round of 32", "double_points": False},
+    {"id":76, "date":"2026-06-30", "time":"04:00", "home":"TBA", "away":"TBA", "round":"Round of 32", "double_points": False},
+    {"id":77, "date":"2026-06-30", "time":"20:00", "home":"TBA", "away":"TBA", "round":"Round of 32", "double_points": False},
+    {"id":78, "date":"2026-07-1", "time":"00:00", "home":"TBA", "away":"TBA", "round":"Round of 32", "double_points": False},
+    {"id":79, "date":"2026-07-1", "time":"04:00", "home":"TBA", "away":"TBA", "round":"Round of 32", "double_points": False},
+    {"id":80, "date":"2026-07-1", "time":"19:00", "home":"TBA", "away":"TBA", "round":"Round of 32", "double_points": False},
+    {"id":81, "date":"2026-07-1", "time":"23:00", "home":"TBA", "away":"TBA", "round":"Round of 32", "double_points": False},
+    {"id":82, "date":"2026-07-2", "time":"03:00", "home":"TBA", "away":"TBA", "round":"Round of 32", "double_points": False},
+    {"id":83, "date":"2026-07-2", "time":"22:00", "home":"TBA", "away":"TBA", "round":"Round of 32", "double_points": False},
+    {"id":84, "date":"2026-07-3", "time":"02:00", "home":"TBA", "away":"TBA", "round":"Round of 32", "double_points": False},
+    {"id":85, "date":"2026-07-3", "time":"06:00", "home":"TBA", "away":"TBA", "round":"Round of 32", "double_points": False},
+    {"id":86, "date":"2026-07-3", "time":"21:00", "home":"TBA", "away":"TBA", "round":"Round of 32", "double_points": False},
+    {"id":87, "date":"2026-07-4", "time":"01:00", "home":"TBA", "away":"TBA", "round":"Round of 32", "double_points": False},
+    {"id":88, "date":"2026-07-4", "time":"04:30", "home":"TBA", "away":"TBA", "round":"Round of 32", "double_points": False},
+    {"id":89, "date":"2026-07-4", "time":"20:00", "home":"TBA", "away":"TBA", "round":"Round of 16", "double_points": False},
+    {"id":90, "date":"2026-07-5", "time":"00:00", "home":"TBA", "away":"TBA", "round":"Round of 16", "double_points": False},
+    {"id":91, "date":"2026-07-5", "time":"23:00", "home":"TBA", "away":"TBA", "round":"Round of 16", "double_points": False},
+    {"id":92, "date":"2026-07-6", "time":"03:00", "home":"TBA", "away":"TBA", "round":"Round of 16", "double_points": False},
+    {"id":93, "date":"2026-07-6", "time":"22:00", "home":"TBA", "away":"TBA", "round":"Round of 16", "double_points": False},
+    {"id":94, "date":"2026-07-7", "time":"03:00", "home":"TBA", "away":"TBA", "round":"Round of 16", "double_points": False},
+    {"id":95, "date":"2026-07-7", "time":"19:00", "home":"TBA", "away":"TBA", "round":"Round of 16", "double_points": False},
+    {"id":96, "date":"2026-07-7", "time":"23:00", "home":"TBA", "away":"TBA", "round":"Round of 16", "double_points": False},
+    {"id":97, "date":"2026-07-9", "time":"23:00", "home":"TBA", "away":"TBA", "round":"Puolivälierä", "double_points": False},
+    {"id":98, "date":"2026-07-10", "time":"22:00", "home":"TBA", "away":"TBA", "round":"Puolivälierä", "double_points": False},
+    {"id":99, "date":"2026-07-12", "time":"00:00", "home":"TBA", "away":"TBA", "round":"Puolivälierä", "double_points": False},
+    {"id":100, "date":"2026-07-12", "time":"04:00", "home":"TBA", "away":"TBA", "round":"Puolivälierä", "double_points": False},
+    {"id":101, "date":"2026-07-14", "time":"22:00", "home":"TBA", "away":"TBA", "round":"Välierä", "double_points": False},
+    {"id":102, "date":"2026-07-15", "time":"22:00", "home":"TBA", "away":"TBA", "round":"Välierä", "double_points": False},
+    {"id":103, "date":"2026-07-18", "time":"00:00", "home":"TBA", "away":"TBA", "round":"Pronssiottelu", "double_points": True},
+    {"id":104, "date":"2026-07-19", "time":"22:00", "home":"TBA", "away":"TBA", "round":"Finaali", "double_points": True},
 ]
+
 
 # ====================== ERIKOISKOHTEET ======================
 special_bets = [
@@ -207,7 +311,7 @@ def get_countdown(match):
             return "🔴 Lukittu", False
         hours, rem = divmod(int(time_left.total_seconds()), 3600)
         minutes, _ = divmod(rem, 60)
-        return f"⏳ {hours}t {minutes:02d}min jäljellä", True
+        return f"⏱️ {hours}t {minutes:02d}min jäljellä", True
     except:
         return "🔴 Virhe aikataulussa", False
 
@@ -234,7 +338,7 @@ def calculate_match_points(pred, real, is_double=False):
     return points * 2 if is_double else points
 
 # ====================== SIVUPALKKI ======================
-st.sidebar.title("⚽ MM26 - Veikkauskisa")
+st.sidebar.title("🏆 MM26 - Veikkauskisa")
 
 if st.session_state.logged_in_user:
     page = st.sidebar.selectbox(
@@ -260,56 +364,128 @@ else:
     page = "Kirjaudu / Rekisteröidy"
 
 
-# ====================== ETUSIVU ======================
 if page == "Etusivu":
+    st.markdown("""
+    <style>
+    .etusivu_text {
+        text-align: center; 
+        font-size: 7rem; 
+        font-weight: 900;
+        background: linear-gradient(90deg, #00ff9d, #4d9fff);
+        -webkit-background-clip: text;
+        -webkit-text-fill-color: transparent;
+        text-shadow: 0 0 80px rgba(0, 255, 157, 0.6);
+        margin: 50px 0 20px 0;
+    }
+    </style>
+    """, unsafe_allow_html=True)
+
     st.markdown('<div class="etusivu_text">MM26</div>', unsafe_allow_html=True)
-    st.markdown('<p style="text-align: center; font-size: 2.8rem; font-weight: 700; color: #e0e0e0; margin-bottom: 60px;">Tervetuloa veikkaamaan ja onnea matkaan!</p>', unsafe_allow_html=True)
+    
+    st.markdown("""
+        <p style="text-align: center; font-size: 2.6rem; font-weight: 700; 
+                   color: #e0e0e0; margin-bottom: 40px; text-shadow: 0 4px 25px rgba(0,0,0,0.8);">
+            Tervetuloa veikkaamaan!<br>
+            
+        </p>
+    """, unsafe_allow_html=True)
 
 
-# ====================== KIRJAUDU / REKISTERÖIDY ======================
-if page == "Kirjaudu / Rekisteröidy":
-    if st.session_state.logged_in_user:
-        st.success(f"Olet kirjautuneena nimellä: **{st.session_state.logged_in_user}**")
-        if st.button("Kirjaudu ulos"):
-            st.session_state.logged_in_user = None
-            st.rerun()
-    else:
-        tab1, tab2 = st.tabs(["Kirjaudu sisään", "Luo uusi tunnus"])
+
+    # ====================== KIRJAUTUMINEN / REKISTERÖITYMINEN ======================
+users = load_json(USERS_FILE)
+
+if not st.session_state.get("logged_in_user"):
+    
+    st.markdown("""
+    <style>
+    .stApp {
+        background-image: url("https://i.imgur.com/r4bYzli.jpg");
+        background-size: cover;
+        background-position: center;
+        background-attachment: fixed;
+    }
+    .stApp::before {
+        content: "";
+        position: absolute;
+        top: 0;
+        left: 0;
+        width: 100%;
+        height: 100%;
+        background: linear-gradient(rgba(10,15,28,0.78), rgba(10,15,28,0.92));
+        z-index: 0;
+    }
+    section[data-testid="stSidebar"] {
+        background-color: #05080f !important;
+        border-right: 3px solid #e0e0e0;
+    }
+    .stTabs [data-testid="stTabPanel"] {
+        background-color: #05080f !important;
+        border-radius: 16px;
+        padding: 40px 35px;
+        max-width: 420px !important;
+        margin: 40px auto !important;
+    }
+    .stTextInput input {
+        background-color: #0a0f1c !important;
+    }
+    .stButton button {
+        background-color: #00ff9d !important;
+        color: #0a0f1c !important;
+        font-weight: 700;
+        height: 52px;
+    }
+    </style>
+    """, unsafe_allow_html=True)
+
+    st.markdown("""
+    <h1 style="text-align: center; color: #00ff9d; margin: -20px 0 -20px 0; 
+               font-size: 2.9rem; text-shadow: 0 0 60px rgba(0,255,157,0.7);">
         
+    </h1>
+    """, unsafe_allow_html=True)
+
+    _, col, _ = st.columns([1, 1, 1])
+
+    with col:
+        tab1, tab2 = st.tabs(["Kirjaudu sisään", "Luo uusi tili"])
+
         with tab1:
-            st.subheader("Kirjaudu sisään")
-            col = st.columns([1, 2, 1])[1]
-            with col:
-                username = st.text_input("Käyttäjänimi", key="login_user")
-                password = st.text_input("Salasana", type="password", key="login_pass")
-                
-                if st.button("Kirjaudu sisään", type="primary", use_container_width=True):
-                    if username in users and users[username] == hash_password(password):
-                        st.session_state.logged_in_user = username
-                        st.success("✅ Kirjautuminen onnistui!")
-                        st.rerun()
-                    else:
-                        st.error("❌ Väärä käyttäjänimi tai salasana")
-        
+            st.subheader("")
+            username = st.text_input("Käyttäjänimi", key="login_user").strip()
+            password = st.text_input("Salasana", type="password", key="login_pass")
+            
+            if st.button("Kirjaudu sisään", type="primary", use_container_width=True):
+                if username in users and users[username] == hash_password(password):
+                    st.session_state.logged_in_user = username
+                    st.session_state.is_admin = (username.lower() == "admin")
+                    st.success(f"Tervetuloa takaisin, {username}!")
+                    st.rerun()
+                else:
+                    st.error("❌ Väärä käyttäjänimi tai salasana")
+
         with tab2:
-            st.subheader("Luo uusi tunnus")
-            col = st.columns([1, 2, 1])[1]
-            with col:
-                new_user = st.text_input("Käyttäjänimi", key="reg_user")
-                new_pass = st.text_input("Salasana", type="password", key="reg_pass")
-                new_pass2 = st.text_input("Toista salasana", type="password", key="reg_pass2")
-                
-                if st.button("Rekisteröidy", type="primary", use_container_width=True):
-                    if not new_user or not new_pass:
-                        st.error("Käyttäjänimi ja salasana ovat pakollisia")
-                    elif new_pass != new_pass2:
-                        st.error("Salasanat eivät täsmää")
-                    elif new_user in users:
-                        st.error("Käyttäjänimi on jo käytössä")
-                    else:
-                        users[new_user] = hash_password(new_pass)
-                        save_json(USERS_FILE, users)
-                        st.success("✅ Tunnus luotu! Voit nyt kirjautua sisään.")
+            st.subheader("")
+            new_user = st.text_input("Käyttäjänimi", key="reg_user").strip()
+            new_pass = st.text_input("Salasana", type="password", key="reg_pass")
+            new_pass2 = st.text_input("Toista salasana", type="password", key="reg_pass2")
+            
+            if st.button("Rekisteröidy", type="primary", use_container_width=True):
+                if not new_user or not new_pass:
+                    st.error("Käyttäjänimi ja salasana ovat pakollisia")
+                elif new_pass != new_pass2:
+                    st.error("Salasanat eivät täsmää")
+                elif new_user in users:
+                    st.error(f"❌ Käyttäjänimi '{new_user}' on jo käytössä")
+                else:
+                    users[new_user] = hash_password(new_pass)
+                    save_json(USERS_FILE, users)
+                    st.success(f"Tili '{new_user}' luotu onnistuneesti, voit kirjautua sisään!")
+                    
+                    
+                    # EI st.rerun() täällä
+
+
 
 
 # ====================== SÄÄNNÖT ======================
@@ -680,25 +856,20 @@ if page == "Omat veikkaukset":
                 
                 st.divider()
 
-
 # ====================== VEIKKAUSTILANNE ======================
 if page == "Veikkaustilanne":
     st.subheader("VEIKKAUSTILANNE")
     
     leaderboard = []
-    
     for username in users.keys():
         user_pred = predictions.get(username, {})
         total = 0
-        
-        # Ottelupisteet
         for m in matches:
             pred = user_pred.get(str(m['id']))
             real = real_results.get("matches", {}).get(str(m['id']))
             if pred and real:
                 total += calculate_match_points(pred, real, m.get("double_points", False))
         
-        # Erikoiskohteiden pisteet
         user_special = user_pred.get("special", {})
         real_special = real_results.get("special", {})
         for bet in special_bets:
@@ -707,7 +878,6 @@ if page == "Veikkaustilanne":
             if pred_val and real_val:
                 pred_str = str(pred_val).strip().lower()
                 real_str = str(real_val).strip().lower()
-                
                 if bet.get("multi") is True:
                     pred_list = [x.strip().lower() for x in pred_str.split(",")]
                     real_list = [x.strip().lower() for x in real_str.split(",")]
@@ -716,115 +886,115 @@ if page == "Veikkaustilanne":
                 elif pred_str == real_str or pred_str in real_str or real_str in pred_str:
                     total += bet.get("points", 0)
         
-        # Manuaaliset korjaukset
-        manual_points = 0
-        if real_results.get("manual_corrections"):
-            manual_points = sum(c["points"] for c in real_results["manual_corrections"].get(username, []))
-        
+        manual_points = sum(c["points"] for c in real_results.get("manual_corrections", {}).get(username, []))
         total += manual_points
-        
-        leaderboard.append({
-            "Nimi": username, 
-            "Pisteet": total,
-            "Manuaaliset": manual_points
-        })
+        leaderboard.append({"Nimi": username, "Pisteet": total, "Manuaaliset": manual_points})
     
     leaderboard.sort(key=lambda x: x["Pisteet"], reverse=True)
-    
-    # Yksinkertainen yhteenveto
-    st.info(f"**Otteluveikkaukset:** {len(real_results.get('matches', {}))}/{len(matches)}   |   "
-            f"**Erikoiskohteet:** {len(real_results.get('special', {}))}/{len(special_bets)}")
-    
-    st.divider()
-    
-    # Pisteiden top-lista
-    st.write("")
-    
-    for i, entry in enumerate(leaderboard, 1):
-        rank_color = "#aaaaaa" if i == 1 else "#aaaaaa" if i == 2 else "#aaaaaa" if i == 3 else "#aaaaaa"
-        
-        cols = st.columns([0.1, 0.5, 1.0])
-        
-        with cols[0]:
-            st.markdown(f"""
-                <div style="text-align: center; font-size: 2.1rem; font-weight: 800; 
-                            color: {rank_color}; margin-top: 18px;">
-                    {i}.
-                </div>
-            """, unsafe_allow_html=True)
-        
-        with cols[1]:
-            st.markdown(f"""
-                <div style="font-size: 1.65rem; font-weight: 600; margin-top: 26px;">
-                    {entry['Nimi']}
-                </div>
-            """, unsafe_allow_html=True)
-        
-        with cols[2]:
-            st.markdown(f"""
-                <div style="background-color: #0a0f1c; color: #aaaaaa; font-size: 2.6rem; 
-                            font-weight: 700; padding: 4px 24px; border-radius: 80px; 
-                            text-align: center;">
-                    {entry['Pisteet']}
-                </div>
-            """, unsafe_allow_html=True)
-        
-        if entry['Manuaaliset'] != 0:
-            sign = "+" if entry['Manuaaliset'] > 0 else ""
-            st.caption(f"  Manuaalikorjaus: {sign}{entry['Manuaaliset']} pistettä")
-        
-        st.markdown("<hr style='margin: 12px 0; border-color: #1e2a44;'>", unsafe_allow_html=True)
 
-     # ====================== KOMMENTTIKENTTÄ ======================
+    st.caption(f"Otteluveikkaukset: {len(real_results.get('matches', {}))}/{len(matches)}  |  "
+               f"Erikoiskohteet: {len(real_results.get('special', {}))}/{len(special_bets)}")
     st.subheader("")
-    
+    for i, entry in enumerate(leaderboard, 1):
+        cols = st.columns([0.3, 0.8, 3.4])
+        with cols[0]:
+            st.markdown(f"<h3 style='margin:8px 0 0 0;'>{i}.</h3>", unsafe_allow_html=True)
+        with cols[1]:
+            st.markdown(f"<h3 style='margin:8px 0 0 0;'>{entry['Nimi']}</h3>", unsafe_allow_html=True)
+        with cols[2]:
+            st.markdown(f"<div style='text-align:left; font-size:2.6rem; font-weight:700; color:#00ff9d;'>{entry['Pisteet']}</div>", unsafe_allow_html=True)
+        if entry.get('Manuaaliset', 0) != 0:
+            sign = "+" if entry['Manuaaliset'] > 0 else ""
+            st.caption(f"Manuaalikorjaus: {sign}{entry['Manuaaliset']} pistettä")
+        st.divider()
+
+# ====================== KOMMENTTIKENTTÄ ======================
+    st.subheader("")
+    st.subheader("📣 Ajatuksia? Sana on vapaa!")
+    st.subheader("")
+
     COMMENTS_FILE = "comments.json"
     comments = load_json(COMMENTS_FILE, default=[])
-    
-    # Näytetään kommentit ensin
-    st.write("**📣 Ajatuksia? Sana on vapaa!**")
-    if comments:
-        for c in reversed(comments[-40:]):   # 40 uusinta kommenttia
-            st.markdown(f"""
-                <div style="background-color: #1e2a44; padding: 20px 20px; border-radius: 12px; 
-                            margin-bottom: 22px; border-left: 12px solid #00ff9d;">
-                    <strong>{c['user']}</strong> 
-                    <span style="color:#888; font-size:0.75rem;">{c['time']}</span><br>
-                    {c['text']}
-                </div>
-            """, unsafe_allow_html=True)
+
+    comments_per_page = 6
+    total_pages = (len(comments) + comments_per_page - 1) // comments_per_page
+
+    # Tuoreimmat kommentit ensin
+    if total_pages > 0:
+        current_page = st.session_state.get("comment_page", 1)
+    else:
+        current_page = 1
+
+    # Kommentit ensin (näytetään ennen sivunvaihtoa)
+    start_idx = (current_page - 1) * comments_per_page
+    end_idx = start_idx + comments_per_page
+    displayed_comments = list(reversed(comments))[start_idx:end_idx]
+
+    if displayed_comments:
+        for i, c in enumerate(displayed_comments):
+            global_idx = len(comments) - 1 - (start_idx + i)
+            is_own = c['user'] == st.session_state.logged_in_user
+            with st.container():
+                col1, col2 = st.columns([3, 3])
+                with col1:
+                    st.markdown(f"""
+                        <div style="background-color: #1e2a44; padding: 24px 24px; border-radius: 24px; 
+                                    margin-bottom: 22px; border-left: 14px solid #00ff9d;">
+                            <strong>{c['user']}</strong> 
+                            <span style="color:#888; font-size:0.9rem;">{c['time']}</span><br>
+                            {c['text']}
+                        </div>
+                    """, unsafe_allow_html=True)
+                with col2:
+                    if is_own and st.button("✏️", key=f"edit_{global_idx}"):
+                        st.session_state.editing_comment = global_idx
+                        st.rerun()
     else:
         st.info("Ei vielä kommentteja. Ole ensimmäinen!")
-    
-    st.divider()
- # Uusi kommentti
-    if st.session_state.logged_in_user:
-        st.write("")
-        with st.form("comment_form", clear_on_submit=True):
-            new_comment = st.text_area(
-                "Kommenttisi...", 
-                height=120, 
-                max_chars=600,           # ← Tässä on maksimipituus
-                placeholder="Anna palaa.... 🔥 (max 600 merkkiä)"
-            )
-            
-            
-            
-            submitted = st.form_submit_button(" 💥 Julkaise kommenttisi 💥", use_container_width=True)
-            
-            if submitted and new_comment.strip():
-                if len(new_comment) > 600:
-                    st.error("Kommentti on liian pitkä!")
-                else:
-                    comment = {
-                        "user": st.session_state.logged_in_user,
-                        "text": new_comment.strip(),
-                        "time": datetime.now().strftime("%d.%m. %H:%M")
-                    }
-                    comments.append(comment)
+
+    # Sivunvaihtolaatikko KOMMENTTIEN ALLE
+    if total_pages > 1:
+        st.markdown("<div style='text-align: center; margin: 20px 0 10px 0;'>", unsafe_allow_html=True)
+        current_page = st.number_input("Sivu", min_value=1, max_value=total_pages, 
+                                     value=current_page, step=1, key="comment_page", 
+                                     label_visibility="collapsed")
+        st.markdown("</div>", unsafe_allow_html=True)
+        st.caption(f"**Sivu {current_page} / {total_pages}**")
+
+    # Muokkaus + uusi kommentti
+    if st.session_state.get("editing_comment") is not None:
+        idx = st.session_state.editing_comment
+        old = comments[idx]
+        st.write("**Muokkaa kommenttiasi:**")
+        new_text = st.text_area("Kommentti", value=old['text'], height=120, key="edit_text")
+        c1, c2 = st.columns(2)
+        with c1:
+            if st.button("Tallenna muutokset", type="primary"):
+                if new_text.strip():
+                    comments[idx]['text'] = new_text.strip()
+                    comments[idx]['edited'] = datetime.now().strftime("%d.%m. %H:%M")
                     save_json(COMMENTS_FILE, comments)
-                    st.success("✅ Kommentti lähetetty!")
+                    st.success("✅ Kommentti päivitetty!")
+                    st.session_state.editing_comment = None
                     st.rerun()
+        with c2:
+            if st.button("Peruuta", type="secondary"):
+                st.session_state.editing_comment = None
+                st.rerun()
+
+    st.divider()
+    if st.session_state.logged_in_user:
+        with st.form("comment_form", clear_on_submit=True):
+            new_comment = st.text_area("Kommenttisi...", height=140, placeholder="Anna palaa.... 🔥", max_chars=600)
+            if st.form_submit_button(" 💥 Julkaise kommenttisi 💥", use_container_width=True) and new_comment.strip():
+                comments.append({
+                    "user": st.session_state.logged_in_user,
+                    "text": new_comment.strip(),
+                    "time": datetime.now().strftime("%d.%m. %H:%M")
+                })
+                save_json(COMMENTS_FILE, comments)
+                st.success("✅ Kommentti julkaistu!")
+                st.rerun()
     else:
         st.warning("Kirjaudu sisään kirjoittaaksesi kommentteja.")    
 
