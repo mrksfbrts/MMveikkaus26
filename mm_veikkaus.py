@@ -163,7 +163,7 @@ countries = sorted([
 
 # ====================== 72 OTTELUA - YLEN MUKAAN ======================
 matches = [
-    {"id":1, "date":"2026-06-11", "time":"22:00", "home":"Meksiko", "away":"Etelä-Afrikka", "group":"A", "double_points": False},
+    {"id":1, "date":"2026-06-10", "time":"01:15", "home":"Meksiko", "away":"Etelä-Afrikka", "group":"A", "double_points": False},
     {"id":2, "date":"2026-06-12", "time":"05:00", "home":"Etelä-Korea", "away":"Tšekki", "group":"A", "double_points": False},
     {"id":3, "date":"2026-06-12", "time":"22:00", "home":"Kanada", "away":"Bosnia ja Hertsegovina", "group":"B", "double_points": False},
     {"id":4, "date":"2026-06-13", "time":"04:00", "home":"USA", "away":"Paraguay", "group":"D", "double_points": True},   # Lohko D
@@ -1249,43 +1249,48 @@ if page == "Admin":
 
     # ====================== VARMUUSKOPIOINTI ======================
     else:
-        st.write("### ")
-        st.info("Varmuuskopio tallentuu **sinun omalle koneellesi**. Tarvittaessa käyttäkää kopiota pisteiden lisäämiseen manuaalisesti.")
-        
-        st.write("")
-        if st.button("Lataa kopio kaikkien veikkauksista", type="primary", use_container_width=True):
-            backup = {
-                "users": users,
-                "predictions": predictions,
-                "real_results": real_results,
-                "timestamp": datetime.now().strftime("%Y-%m-%d %H:%M:%S")
-            }
-            st.download_button(
-                label="📥 Lataa backup.json",
-                data=json.dumps(backup, ensure_ascii=False, indent=2),
-                file_name=f"mm26_backup_{datetime.now().strftime('%Y%m%d_%H%M')}.json",
-                mime="application/json",
-                use_container_width=True
-            )
-        
-        st.divider()
-        st.write("#### Palauta varmuuskopio")
-        uploaded = st.file_uploader("", type="json")
-        if uploaded is not None:
-            if st.button("⚠️ Korvaa kaikki tiedostot tällä varmuuskopiolla", type="primary", use_container_width=True):
-                try:
-                    backup_data = json.load(uploaded)
-                    users.clear()
-                    users.update(backup_data.get("users", {}))
-                    predictions.clear()
-                    predictions.update(backup_data.get("predictions", {}))
-                    real_results.clear()
-                    real_results.update(backup_data.get("real_results", {}))
-                    
-                    save_json(USERS_FILE, users)
-                    save_json(PREDICTIONS_FILE, predictions)
-                    save_json(RESULTS_FILE, real_results)
-                    st.success("✅ Varmuuskopio palautettu onnistuneesti!")
-                    st.rerun()
-                except Exception as e:
-                    st.error(f"Virhe palautuksessa: {e}")
+            st.write("### ")
+            st.info("Varmuuskopio tallentuu **sinun omalle koneellesi**. Kommentit ovat nyt myös mukana.")
+            
+            st.write("")
+            if st.button("Lataa kopio kaikesta (sis. kommentit)", type="primary", use_container_width=True):
+                backup = {
+                    "users": users,
+                    "predictions": predictions,
+                    "real_results": real_results,
+                    "comments": load_json("comments.json", default=[]),   # ← Nyt kommentit mukaan
+                    "timestamp": datetime.now().strftime("%Y-%m-%d %H:%M:%S")
+                }
+                st.download_button(
+                    label="📥 Lataa backup.json",
+                    data=json.dumps(backup, ensure_ascii=False, indent=2),
+                    file_name=f"veikkaus_backup_{datetime.now().strftime('%Y%m%d_%H%M')}.json",
+                    mime="application/json",
+                    use_container_width=True
+                )
+            
+            st.divider()
+            st.write("#### Palauta varmuuskopio")
+            uploaded = st.file_uploader("", type="json")
+            if uploaded is not None:
+                if st.button("⚠️ Korvaa kaikki tiedostot tällä varmuuskopiolla", type="primary", use_container_width=True):
+                    try:
+                        backup_data = json.load(uploaded)
+                        users.clear()
+                        users.update(backup_data.get("users", {}))
+                        predictions.clear()
+                        predictions.update(backup_data.get("predictions", {}))
+                        real_results.clear()
+                        real_results.update(backup_data.get("real_results", {}))
+                        
+                        # Kommenttien palautus
+                        save_json("comments.json", backup_data.get("comments", []))
+                        
+                        save_json(USERS_FILE, users)
+                        save_json(PREDICTIONS_FILE, predictions)
+                        save_json(RESULTS_FILE, real_results)
+                        
+                        st.success("✅ Kaikki palautettu onnistuneesti! (myös keskustelu)")
+                        st.rerun()
+                    except Exception as e:
+                        st.error(f"Virhe palautuksessa: {e}")
