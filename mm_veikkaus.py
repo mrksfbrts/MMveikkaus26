@@ -1,6 +1,5 @@
 import streamlit as st
 import pandas as pd
-import pytz
 import json
 import hashlib
 import os
@@ -305,35 +304,15 @@ special_bets = [
 # ====================== APUFUNKTIOT ======================
 def get_countdown(match):
     try:
-        helsinki_tz = pytz.timezone('Europe/Helsinki')
-        
-        # Ottelun alkamisaika Suomen aikaa
         match_time = datetime.strptime(f"{match['date']} {match['time']}", "%Y-%m-%d %H:%M")
-        match_time = helsinki_tz.localize(match_time)
-        
-        # Sulkeutuu 15 minuuttia ennen ottelua
-        lock_time = match_time - timedelta(minutes=15)
-        
-        # Nykyhetki Suomen aikaa
-        now = datetime.now(helsinki_tz)
-        
-        time_left = lock_time - now
-        
+        lock_time = match_time - timedelta(hours=3, minutes=15)
+        time_left = lock_time - datetime.now()
         if time_left.total_seconds() <= 0:
-            return "🔴 Veikkaus sulkeutunut", False
-        
-        # Näyttömuoto
-        total_sec = int(time_left.total_seconds())
-        days = total_sec // 86400
-        hours = (total_sec % 86400) // 3600
-        minutes = (total_sec % 3600) // 60
-        
-        if days > 0:
-            return f"⏳ {days} pv {hours}t {minutes:02d}min jäljellä", True
-        else:
-            return f"⏳ {hours}t {minutes:02d}min jäljellä", True
-            
-    except Exception:
+            return "🔴 Lukittu", False
+        hours, rem = divmod(int(time_left.total_seconds()), 3600)
+        minutes, _ = divmod(rem, 60)
+        return f"⏱️ {hours}t {minutes:02d}min jäljellä", True
+    except:
         return "🔴 Virhe aikataulussa", False
 
 def calculate_match_points(pred, real, is_double=False):
