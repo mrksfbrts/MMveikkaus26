@@ -163,7 +163,7 @@ countries = sorted([
 
 # ====================== 72 OTTELUA - YLEN MUKAAN ======================
 matches = [
-    {"id":1, "date":"2026-06-10", "time":"01:15", "home":"Meksiko", "away":"Etelä-Afrikka", "group":"A", "double_points": False},
+    {"id":1, "date":"2026-06-11", "time":"22:00", "home":"Meksiko", "away":"Etelä-Afrikka", "group":"A", "double_points": False},
     {"id":2, "date":"2026-06-12", "time":"05:00", "home":"Etelä-Korea", "away":"Tšekki", "group":"A", "double_points": False},
     {"id":3, "date":"2026-06-12", "time":"22:00", "home":"Kanada", "away":"Bosnia ja Hertsegovina", "group":"B", "double_points": False},
     {"id":4, "date":"2026-06-13", "time":"04:00", "home":"USA", "away":"Paraguay", "group":"D", "double_points": True},   # Lohko D
