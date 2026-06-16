@@ -340,6 +340,8 @@ def calculate_match_points(pred, real, is_double=False):
 # ====================== SIVUPALKKI ======================
 st.sidebar.title("🏆 MM26 - Veikkauskisa")
 
+
+
 if st.session_state.logged_in_user:
     page = st.sidebar.selectbox(
         "",
@@ -550,8 +552,8 @@ if page == "Veikkaa erikoiskohteita":
             special_open = True
         
         if real_special or not special_open:
-            st.success("✅ Erikoiskohteet ovat lukittu.")
-            st.info("Erikoiskohteiden veikkaus sulkeutui 15 minuuttia ennen turnauksen avausottelua.")
+            st.success("Erikoiskohteiden pisteet päivittyvät pistetilanteeseen heti kun kohde on ratkennut.")
+            st.info("Erikoiskohteiden veikkaus on sulkeutunut.")
         else:
 
             
@@ -858,6 +860,8 @@ if page == "Omat veikkaukset":
 
 # ====================== VEIKKAUSTILANNE ======================
 if page == "Veikkaustilanne":
+    
+    
     st.subheader("VEIKKAUSTILANNE")
     
     leaderboard = []
@@ -894,7 +898,8 @@ if page == "Veikkaustilanne":
 
     st.caption(f"Otteluveikkaukset: {len(real_results.get('matches', {}))}/{len(matches)}  |  "
                f"Erikoiskohteet: {len(real_results.get('special', {}))}/{len(special_bets)}")
-    st.subheader("")
+    
+    st.divider()
     for i, entry in enumerate(leaderboard, 1):
         cols = st.columns([0.3, 0.8, 3.4])
         with cols[0]:
@@ -906,10 +911,44 @@ if page == "Veikkaustilanne":
         if entry.get('Manuaaliset', 0) != 0:
             sign = "+" if entry['Manuaaliset'] > 0 else ""
             st.caption(f"Manuaalikorjaus: {sign}{entry['Manuaaliset']} pistettä")
-        st.divider()
+        
+    st.divider()
+
+        # ==================== LIVE COUNTERIT ====================
+    counters = real_results.get("counters", {})
+    
+    st.caption(" 🔴 Erikoiskohteiden LIVE-seuranta")
+    st.caption("")    
+    c1, c2, c3 = st.columns(3)
+    c4, c5, c6 = st.columns(3)
+
+    with c1:
+        st.metric("Maalittomat pelit", f"{counters.get('zero_zero', 0)} / 5.5")
+    with c2:
+        st.metric("Suorat punaiset", f"{counters.get('red_cards', 0)} / 5.5")
+    with c3:
+        st.metric("Maalit yhteensä", f"{counters.get('total_goals', 0)} / 199.5")
+
+    with c4:
+        st.metric("Suorat vapaapotkumaalit", f"{counters.get('fk_goals', 0)} / 2.5")
+    with c5:
+        st.metric("Tuomitut rangaistuspotkut", f"{counters.get('penalties', 0)} / 23.5")
+    with c6:
+        st.metric("Omat maalit", f"{counters.get('own_goals', 0)} / 5.5")
+
+       # Muut kohteet
+    d1, d2, d3 = st.columns(3)
+    with d1:
+        st.metric("Eniten keltaisia kortteja", counters.get("most_yellows", "-"))
+    with d2:
+        st.metric("Pienin maaliodottama (xG)", counters.get("lowest_xg", "-"))
+    
+        
+    
+    st.divider()
 
 # ====================== KOMMENTTIKENTTÄ ======================
-    st.subheader("")
+    
     st.subheader("📣 Ajatuksia? Sana on vapaa!")
     st.subheader("")
 
@@ -1022,7 +1061,7 @@ if page == "Kaikkien veikkaukset":
             if real:
                 st.success(f"Tulos: **{real[0]}–{real[1]}**")
             else:
-                st.info("Ottelu on sulkeutunut – tulos odottaa")
+                st.info("Ottelu käynnissä - tulosta odotellaan...")
             
             for u in sorted(users.keys()):
                 pred = predictions.get(u, {}).get(match_id)
@@ -1052,7 +1091,7 @@ if page == "Kaikkien veikkaukset":
             if real_val:
                 st.success(f"Toteutunut: **{real_val}**")
             else:
-                st.info("Kohde on sulkeutunut – tulos odottaa")
+                st.info("Kohde ei ole vielä ratkennut...")
             
             for u in sorted(users.keys()):
                 user_pred = predictions.get(u, {}).get("special", {}).get(bet_id)
@@ -1130,6 +1169,52 @@ if page == "Admin":
                     st.success("Tulos poistettu")
                     st.rerun()
             st.divider()
+
+        st.subheader("📊 Erikoiskohteiden live-counterit")
+
+        counters = real_results.get("counters", {})
+
+        # Numero-kentät
+        col1, col2, col3 = st.columns(3)
+        with col1:
+            zero_zero = st.number_input("0-0 pelit", value=counters.get("zero_zero", 0), step=1)
+            red_cards = st.number_input("Suorat punaiset", value=counters.get("red_cards", 0), step=1)
+        with col2:
+            total_goals = st.number_input("Tehdyt maalit", value=counters.get("total_goals", 0), step=1)
+            fk_goals = st.number_input("Vapaapotkumaalit", value=counters.get("fk_goals", 0), step=1)
+        with col3:
+            penalties = st.number_input("Rangaistuspotkut", value=counters.get("penalties", 0), step=1)
+            own_goals = st.number_input("Omat maalit", value=counters.get("own_goals", 0), step=1)
+
+        st.divider()
+
+        # Dropdownit
+        col4, col5 = st.columns(2)
+
+        with col4:
+          
+
+         
+            most_yellows = st.selectbox("Eniten keltaisia kortteja", 
+                ["-"] + countries, index=0)
+            
+            lowest_xg = st.selectbox("Pienin xG", 
+                ["-"] + countries, index=0)
+
+        if st.button("💾 Tallenna kaikki counterit", type="primary", use_container_width=True):
+            real_results["counters"] = {
+                "zero_zero": zero_zero,
+                "red_cards": red_cards,
+                "total_goals": total_goals,
+                "fk_goals": fk_goals,
+                "penalties": penalties,
+                "own_goals": own_goals,
+                "most_yellows": most_yellows,
+                "lowest_xg": lowest_xg
+            }
+            save_json(RESULTS_FILE, real_results)
+            st.success("✅ Kaikki counterit tallennettu!")
+            st.rerun()
 
     # ====================== ERIKOISKOHTEIDEN TULOKSET ======================
     elif admin_tab == "Erikoiskohteiden tulokset":
