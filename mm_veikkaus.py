@@ -235,22 +235,22 @@ matches = [
     {"id":70,"date":"2026-06-28", "time":"02:30", "home":"Kongon demokraattinen tasavalta", "away":"Uzbekistan", "group":"K", "double_points": False},
     {"id":71,"date":"2026-06-28", "time":"05:00", "home":"Algeria", "away":"Itävalta", "group":"J", "double_points": False},
     {"id":72,"date":"2026-06-28", "time":"05:00", "home":"Jordania", "away":"Argentiina", "group":"J", "double_points": True},
-    {"id":73, "date":"2026-06-28", "time":"22:00", "home":"TBA", "away":"TBA", "round":"Round of 32", "double_points": False},
-    {"id":74, "date":"2026-06-29", "time":"20:00", "home":"TBA", "away":"TBA", "round":"Round of 32", "double_points": False},
-    {"id":75, "date":"2026-06-29", "time":"23:30", "home":"TBA", "away":"TBA", "round":"Round of 32", "double_points": False},
-    {"id":76, "date":"2026-06-30", "time":"04:00", "home":"TBA", "away":"TBA", "round":"Round of 32", "double_points": False},
-    {"id":77, "date":"2026-06-30", "time":"20:00", "home":"TBA", "away":"TBA", "round":"Round of 32", "double_points": False},
-    {"id":78, "date":"2026-07-1", "time":"00:00", "home":"TBA", "away":"TBA", "round":"Round of 32", "double_points": False},
-    {"id":79, "date":"2026-07-1", "time":"04:00", "home":"TBA", "away":"TBA", "round":"Round of 32", "double_points": False},
-    {"id":80, "date":"2026-07-1", "time":"19:00", "home":"TBA", "away":"TBA", "round":"Round of 32", "double_points": False},
-    {"id":81, "date":"2026-07-1", "time":"23:00", "home":"TBA", "away":"TBA", "round":"Round of 32", "double_points": False},
-    {"id":82, "date":"2026-07-2", "time":"03:00", "home":"TBA", "away":"TBA", "round":"Round of 32", "double_points": False},
-    {"id":83, "date":"2026-07-2", "time":"22:00", "home":"TBA", "away":"TBA", "round":"Round of 32", "double_points": False},
-    {"id":84, "date":"2026-07-3", "time":"02:00", "home":"TBA", "away":"TBA", "round":"Round of 32", "double_points": False},
-    {"id":85, "date":"2026-07-3", "time":"06:00", "home":"TBA", "away":"TBA", "round":"Round of 32", "double_points": False},
-    {"id":86, "date":"2026-07-3", "time":"21:00", "home":"TBA", "away":"TBA", "round":"Round of 32", "double_points": False},
-    {"id":87, "date":"2026-07-4", "time":"01:00", "home":"TBA", "away":"TBA", "round":"Round of 32", "double_points": False},
-    {"id":88, "date":"2026-07-4", "time":"04:30", "home":"TBA", "away":"TBA", "round":"Round of 32", "double_points": False},
+    {"id":73, "date":"2026-06-28", "time":"22:00", "home":"Etelä-Afrikka", "away":"Kanada", "round":"Round of 32", "double_points": False},
+    {"id":74, "date":"2026-06-29", "time":"20:00", "home":"Brasilia", "away":"Japani", "round":"Round of 32", "double_points": False},
+    {"id":75, "date":"2026-06-29", "time":"23:30", "home":"Saksa", "away":"Paraguay", "round":"Round of 32", "double_points": False},
+    {"id":76, "date":"2026-06-30", "time":"04:00", "home":"Hollanti", "away":"Marokko", "round":"Round of 32", "double_points": False},
+    {"id":77, "date":"2026-06-30", "time":"20:00", "home":"Norsunluurannikko", "away":"Norja", "round":"Round of 32", "double_points": False},
+    {"id":78, "date":"2026-07-1", "time":"00:00", "home":"Ranska", "away":"Ruotsi", "round":"Round of 32", "double_points": False},
+    {"id":79, "date":"2026-07-1", "time":"04:00", "home":"Meksiko", "away":"Ecuador", "round":"Round of 32", "double_points": False},
+    {"id":80, "date":"2026-07-1", "time":"19:00", "home":"Englanti", "away":"Kongon demokraattinen tasavalta", "round":"Round of 32", "double_points": False},
+    {"id":81, "date":"2026-07-1", "time":"23:00", "home":"Belgia", "away":"Senegal", "round":"Round of 32", "double_points": False},
+    {"id":82, "date":"2026-07-2", "time":"03:00", "home":"USA", "away":"Bosnia ja Hertsegovina", "round":"Round of 32", "double_points": False},
+    {"id":83, "date":"2026-07-2", "time":"22:00", "home":"Espanja", "away":"Itävalta", "round":"Round of 32", "double_points": False},
+    {"id":84, "date":"2026-07-3", "time":"02:00", "home":"Portugali", "away":"Kroatia", "round":"Round of 32", "double_points": False},
+    {"id":85, "date":"2026-07-3", "time":"06:00", "home":"Sveitsi", "away":"Algeria", "round":"Round of 32", "double_points": False},
+    {"id":86, "date":"2026-07-3", "time":"21:00", "home":"Australia", "away":"Egypti", "round":"Round of 32", "double_points": False},
+    {"id":87, "date":"2026-07-4", "time":"01:00", "home":"Argentiina", "away":"Kap Verde", "round":"Round of 32", "double_points": False},
+    {"id":88, "date":"2026-07-4", "time":"04:30", "home":"Kolumbia", "away":"Ghana", "round":"Round of 32", "double_points": False},
     {"id":89, "date":"2026-07-4", "time":"20:00", "home":"TBA", "away":"TBA", "round":"Round of 16", "double_points": False},
     {"id":90, "date":"2026-07-5", "time":"00:00", "home":"TBA", "away":"TBA", "round":"Round of 16", "double_points": False},
     {"id":91, "date":"2026-07-5", "time":"23:00", "home":"TBA", "away":"TBA", "round":"Round of 16", "double_points": False},
@@ -917,7 +917,7 @@ if page == "Veikkaustilanne":
         # ==================== LIVE COUNTERIT ====================
     counters = real_results.get("counters", {})
     
-    st.caption(" 🔴 Erikoiskohteiden LIVE-seuranta")
+    st.caption(" 🔴 Erikoiskohteiden lopullinen tilanne alkulohkojen jälkeen")
     st.caption("")    
     c1, c2, c3 = st.columns(3)
     c4, c5, c6 = st.columns(3)
