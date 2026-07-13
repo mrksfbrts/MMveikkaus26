@@ -263,8 +263,8 @@ matches = [
     {"id":98, "date":"2026-07-10", "time":"22:00", "home":"Espanja", "away":"Belgia", "round":"Puolivälierä", "double_points": False},
     {"id":99, "date":"2026-07-12", "time":"00:00", "home":"Norja", "away":"Englanti", "round":"Puolivälierä", "double_points": False},
     {"id":100, "date":"2026-07-12", "time":"04:00", "home":"Argentiina", "away":"Sveitsi", "round":"Puolivälierä", "double_points": False},
-    {"id":101, "date":"2026-07-14", "time":"22:00", "home":"TBA", "away":"TBA", "round":"Välierä", "double_points": False},
-    {"id":102, "date":"2026-07-15", "time":"22:00", "home":"TBA", "away":"TBA", "round":"Välierä", "double_points": False},
+    {"id":101, "date":"2026-07-14", "time":"22:00", "home":"Ranska", "away":"Espanja", "round":"Välierä", "double_points": False},
+    {"id":102, "date":"2026-07-15", "time":"22:00", "home":"Englanti", "away":"Argentiina", "round":"Välierä", "double_points": False},
     {"id":103, "date":"2026-07-18", "time":"00:00", "home":"TBA", "away":"TBA", "round":"Pronssiottelu", "double_points": True},
     {"id":104, "date":"2026-07-19", "time":"22:00", "home":"TBA", "away":"TBA", "round":"Finaali", "double_points": True},
 ]
