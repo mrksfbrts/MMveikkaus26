@@ -7,6 +7,9 @@ import sqlite3
 from datetime import datetime, timedelta
 from zoneinfo import ZoneInfo
 import bcrypt
+import html
+import zipfile
+import io
 
 # ====================== AIKAVYÖHYKE ======================
 HELSINKI = ZoneInfo("Europe/Helsinki")
@@ -18,7 +21,7 @@ st.set_page_config(
     initial_sidebar_state="expanded"
 )
 
-# ====================== SALASANAT (älä jätä oletusarvoja tuotantoon) ======================
+# ====================== SALASANAT ======================
 def get_secret(key, env_key, default):
     try:
         return st.secrets[key]
@@ -31,20 +34,43 @@ ADMIN_PASSWORD = get_secret("admin_password", "ADMIN_PASSWORD", "admin123")
 # ====================== GLOBAALI TYYLITTELY ======================
 st.markdown("""
 <style>
-    /* Pääsivun tausta – sama kaikilla sivuilla */
+    :root {
+        --bg: #0b1120;
+        --card: #111827;
+        --card-hover: #1e293b;
+        --border: #1e293b;
+        --border-light: #334155;
+        --accent: #22c55e;
+        --accent-dim: rgba(34, 197, 94, 0.15);
+        --text: #e2e8f0;
+        --muted: #94a3b8;
+        --gold: #fbbf24;
+        --silver: #94a3b8;
+        --bronze: #d97706;
+    }
+
     .stApp {
-        background-color: #0a0f1c !important;
+        background-color: var(--bg) !important;
         background-image: none !important;
+        color: var(--text);
+    }
+
+    /* Yhtenäinen max-width sisällölle */
+    .main .block-container {
+        max-width: 1100px !important;
+        padding-top: 1.4rem !important;
+        padding-bottom: 2.5rem !important;
     }
 
     /* Sivupalkki */
     section[data-testid="stSidebar"] {
-        background-image: url("https://i.imgur.com/gvrq6iO.jpeg") !important;
-        background-size: contain !important;
+        background-image: linear-gradient(rgba(30, 41, 59, 0.72), rgba(15, 23, 42, 0.85)),
+                          url("https://i.imgur.com/gvrq6iO.jpeg") !important;
+        background-size: cover !important;
         background-position: center bottom !important;
         background-repeat: no-repeat !important;
-        background-color: #000000 !important;
-        border-right: 1px solid #ffffff !important;
+        background-color: #1e293b  !important;
+        border-right: 1px solid var(--border-light) !important;
         padding-top: 0 !important;
     }
 
@@ -62,17 +88,18 @@ st.markdown("""
 
     section[data-testid="stSidebar"] [data-testid="stSidebarContent"],
     section[data-testid="stSidebar"] [data-testid="stSidebarUserContent"] {
-        padding-top: 0.3rem !important;
-        padding-bottom: 0.5rem !important;
+        padding-top: 0.4rem !important;
+        padding-bottom: 1rem !important;
     }
 
     section[data-testid="stSidebar"] .block-container {
-        padding-top: 0.3rem !important;
-        padding-bottom: 0.5rem !important;
+        padding-top: 0.4rem !important;
+        padding-bottom: 1rem !important;
     }
 
     .stTabs [data-testid="stTabList"] {
         position: relative;
+        gap: 4px;
     }
     .stTabs [data-testid="stTabList"]::after {
         content: "";
@@ -80,8 +107,8 @@ st.markdown("""
         bottom: -2px;
         left: 0;
         width: 100% !important;
-        height: 3px;
-        background: linear-gradient(to right, transparent, #ffffff, transparent);
+        height: 2px;
+        background: linear-gradient(to right, transparent, var(--border-light), transparent);
         z-index: 1;
     }
 
@@ -91,31 +118,31 @@ st.markdown("""
     }
 
     section[data-testid="stSidebar"] .stRadio > div {
-        background-color: rgba(13, 19, 33, 0.85) !important;
-        border: 1px solid #ffffff !important;
-        border-radius: 18px !important;
-        padding: 19px !important;
+        background-color: rgba(17, 24, 39, 0.9) !important;
+        border: 1px solid var(--border-light) !important;
+        border-radius: 14px !important;
+        padding: 14px 16px !important;
     }
 
     section[data-testid="stSidebar"] .stAlert {
-        background-color: rgba(13, 19, 33, 0.85) !important;
-        border: 1px solid #ffffff !important;
-        border-radius: 18px !important;
-        color: #00ff9d !important;
+        background-color: rgba(17, 24, 39, 0.9) !important;
+        border: 1px solid var(--border-light) !important;
+        border-radius: 14px !important;
+        color: var(--accent) !important;
     }
 
     section[data-testid="stSidebar"] [data-testid="stExpander"] {
-        border: 1px solid #ffffff !important;
-        border-radius: 18px !important;
-        background-color: rgba(13, 19, 33, 0.85) !important;
-        margin-bottom: 8px !important;
+        border: 1px solid var(--border-light) !important;
+        border-radius: 14px !important;
+        background-color: rgba(17, 24, 39, 0.9) !important;
+        margin-bottom: 10px !important;
         width: 100% !important;
         max-width: 100% !important;
     }
 
     section[data-testid="stSidebar"] .streamlit-expanderHeader {
         background-color: transparent !important;
-        color: #ffffff !important;
+        color: var(--text) !important;
         border: none !important;
     }
 
@@ -125,53 +152,91 @@ st.markdown("""
     }
 
     section[data-testid="stSidebar"] .stButton > button {
-        background-color: rgba(13, 19, 33, 0.85) !important;
-        border: 1px solid #ffffff !important;
-        border-radius: 18px !important;
-        color: #ffffff !important;
+        background-color: rgba(17, 24, 39, 0.95) !important;
+        border: 1px solid var(--border-light) !important;
+        border-radius: 12px !important;
+        color: var(--text) !important;
         margin-top: 0 !important;
-        margin-bottom: 18px !important;
+        margin-bottom: 14px !important;
+        transition: all 0.15s ease !important;
     }
     
     section[data-testid="stSidebar"] .stButton > button:hover {
-        background-color: #1a253a !important;
-        border-color: #ffffff !important;
-        color: #ffffff !important;
+        background-color: var(--card-hover) !important;
+        border-color: var(--accent) !important;
+        color: var(--text) !important;
     }  
 
     section[data-testid="stSidebar"] .stTextInput > div > div {
-        border: 1px solid #ffffff !important;
-        border-radius: 18px !important;
+        border: 1px solid var(--border-light) !important;
+        border-radius: 12px !important;
     }
     section[data-testid="stSidebar"] .stTextInput > div > div:focus-within {
-        border: 1px solid #ffffff !important;
-        box-shadow: 0 0 0 1px #ffffff !important;
+        border: 1px solid var(--accent) !important;
+        box-shadow: 0 0 0 1px var(--accent) !important;
     }
     section[data-testid="stSidebar"] .stRadio,
     section[data-testid="stSidebar"] .stRadio > div {
-        width: 108% !important;
-        max-width: 108% !important;
+        width: 100% !important;
+        max-width: 100% !important;
     }
 
-    /* ========== MOBIILI ========== */
+    .stButton > button {
+        transition: all 0.15s ease !important;
+        border-radius: 10px !important;
+    }
+
+    /* Header-kortti */
+    .page-header {
+        background: linear-gradient(135deg, #1e293b 0%, #0f172a 100%);
+        border: 1px solid #22c55e;
+        border-radius: 14px;
+        padding: 16px 20px;
+        margin-bottom: 22px;
+    }
+    .page-header h2 {
+        margin: 0;
+        color: #f1f5f9;
+        font-size: 1.45rem;
+        font-weight: 700;
+    }
+    .page-header p {
+        margin: 6px 0 0 0;
+        color: #94a3b8;
+        font-size: 0.95rem;
+        line-height: 1.45;
+    }
+
+    /* Ranking progress */
+    .rank-bar-bg {
+        height: 4px;
+        background: #1e293b;
+        border-radius: 4px;
+        margin-top: 7px;
+        overflow: hidden;
+    }
+    .rank-bar-fill {
+        height: 100%;
+        background: linear-gradient(90deg, #16a34a, #22c55e);
+        border-radius: 4px;
+    }
+
     @media (max-width: 768px) {
-        /* Etusivun otsikko */
         .etusivu-otsikko {
-            font-size: 1.7rem !important;
+            font-size: 1.65rem !important;
             white-space: normal !important;
-            letter-spacing: 1.5px !important;
-            line-height: 1.25 !important;
+            letter-spacing: 1.2px !important;
+            line-height: 1.3 !important;
             padding: 0 12px !important;
         }
 
         .etusivu-container {
             height: auto !important;
-            min-height: 18vh !important;
-            padding-top: 1.5rem !important;
-            padding-bottom: 1rem !important;
+            min-height: 16vh !important;
+            padding-top: 1.2rem !important;
+            padding-bottom: 0.8rem !important;
         }
 
-        /* Sivupalkki mobiililla */
         section[data-testid="stSidebar"] {
             background-size: cover !important;
             background-position: center center !important;
@@ -188,14 +253,13 @@ st.markdown("""
         }
 
         section[data-testid="stSidebar"] [data-testid="stExpander"] {
-            margin-bottom: 6px !important;
+            margin-bottom: 8px !important;
         }
 
         section[data-testid="stSidebar"] .stButton > button {
             margin-bottom: 10px !important;
         }
 
-        /* Varmista sulkemispainikkeen näkyvyys */
         section[data-testid="stSidebar"] button[kind="header"],
         section[data-testid="stSidebar"] [data-testid="stSidebarCollapseButton"],
         section[data-testid="stSidebar"] [data-testid="baseButton-header"] {
@@ -209,7 +273,7 @@ st.markdown("""
 """, unsafe_allow_html=True)
 
 # ====================== SQLITE TIETOKANTA ======================
-DB_FILE = "veikkaus.db"
+DB_FILE = os.environ.get("DB_PATH", "veikkaus.db")
 
 def init_db():
     conn = sqlite3.connect(DB_FILE)
@@ -261,20 +325,16 @@ init_db()
 
 # ====================== APUFUNKTIOT ======================
 def hash_password(password: str) -> str:
-    """Hashaa salasana bcryptillä (sisältää suolan)."""
     salt = bcrypt.gensalt(rounds=12)
     hashed = bcrypt.hashpw(password.encode("utf-8"), salt)
     return hashed.decode("utf-8")
 
 def check_password(password: str, hashed: str) -> bool:
-    """Tarkista salasana. Tukee sekä bcryptiä että vanhaa SHA-256:ta."""
     if not hashed:
         return False
     try:
-        # bcrypt-hashit alkavat yleensä $2a$, $2b$ tai $2y$
         if hashed.startswith("$2"):
             return bcrypt.checkpw(password.encode("utf-8"), hashed.encode("utf-8"))
-        # Legacy SHA-256 (vanhat käyttäjät)
         return hashlib.sha256(password.encode("utf-8")).hexdigest() == hashed
     except Exception:
         return False
@@ -482,7 +542,6 @@ def calculate_match_points(pred, real, double=False):
     if not pred or not real:
         return 0
 
-    # ----- NHL-moniveto -----
     if "mark" in pred:
         pts = 0
         rh = real.get("home_goals")
@@ -491,13 +550,11 @@ def calculate_match_points(pred, real, double=False):
         if rh is None or ra is None:
             return 0
 
-        # Moniveto: 8 p jos tarkka yhdistelmä osuu
         home_opts = pred.get("home_opts", [])
         away_opts = pred.get("away_opts", [])
         if rh in home_opts and ra in away_opts:
-            pts += 8
+            pts += 7
 
-        # 1X2: 3 p
         real_mark = get_1x2(rh, ra)
         if pred.get("mark") == real_mark:
             pts += 3
@@ -506,7 +563,6 @@ def calculate_match_points(pred, real, double=False):
             pts *= 2
         return pts
 
-    # ----- Normaali veikkaus (muut listat) -----
     ph = pred.get("home_goals")
     pa = pred.get("away_goals")
     rh = real.get("home_goals")
@@ -525,8 +581,10 @@ def calculate_match_points(pred, real, double=False):
         pts = 10
     elif (ph == rh and abs(pa - ra) == 1) or (pa == ra and abs(ph - rh) == 1):
         pts = 7
-    elif (ph == rh) or (pa == ra) or (pred_res == "X"):
+    elif (ph == rh) or (pa == ra):
         pts = 6
+    elif pred_res == "X":
+        pts = 5
     else:
         pts = 4
 
@@ -606,6 +664,14 @@ NHL_MATCHES = [
     {"id": "l5_12", "home": "Nashville", "away": "Minnesota", "aika": "To 1.10. 03:00", "start": datetime(2026, 10, 1, 3, 0, tzinfo=HELSINKI), "double": False},
 ]
 
+ALL_MATCH_LISTS_DATA = [
+    ("Lista 1 – SM-Liiga", LIIGA_MATCHES),
+    ("Lista 2 – Valioliiga", VALIOLIIGA_MATCHES),
+    ("Lista 3 – Europelien helmiä", EURO_MATCHES),
+    ("Lista 4 – Kansojen liiga", NATIONS_MATCHES),
+    ("Lista 5 – NHL-Tusina", NHL_MATCHES),
+]
+
 def calculate_match_points_only(username):
     total = 0
     for matches in [LIIGA_MATCHES, VALIOLIIGA_MATCHES, EURO_MATCHES, NATIONS_MATCHES, NHL_MATCHES]:
@@ -619,6 +685,17 @@ def calculate_user_points(username):
     total = calculate_match_points_only(username)
     total += get_adjustment_total(username)
     return total
+
+def calculate_list_points(username, matches):
+    total = 0
+    done = 0
+    for m in matches:
+        pred = load_prediction(username, m["id"])
+        if pred:
+            done += 1
+        real = load_real_result("match", m["id"])
+        total += calculate_match_points(pred, real, double=m["double"])
+    return total, done, len(matches)
 
 def get_user_rank(username):
     conn = get_db_connection()
@@ -642,6 +719,43 @@ def get_user_rank(username):
             return i, total
     return total, total
 
+def get_next_open_match():
+    now = datetime.now(HELSINKI)
+    candidates = []
+    for matches in [LIIGA_MATCHES, VALIOLIIGA_MATCHES, EURO_MATCHES, NATIONS_MATCHES, NHL_MATCHES]:
+        for m in matches:
+            if now < m["start"]:
+                candidates.append(m)
+    if not candidates:
+        return None
+    candidates.sort(key=lambda x: x["start"])
+    return candidates[0]
+
+def page_header(title, subtitle=None):
+    sub_html = f'<p>{subtitle}</p>' if subtitle else ""
+    st.markdown(f"""
+    <div class="page-header">
+        <h2>{title}</h2>
+        {sub_html}
+    </div>
+    """, unsafe_allow_html=True)
+
+def summary_card(title, value, subtitle=""):
+    st.markdown(f"""
+    <div style="
+        background: linear-gradient(135deg, #0f172a 0%, #1e293b 100%);
+        border: 1px solid #22c55e;
+        border-radius: 14px;
+        padding: 18px 20px;
+        margin-bottom: 18px;
+        text-align: center;
+    ">
+        <div style="font-size:0.9rem; color:#94a3b8; margin-bottom:4px;">{title}</div>
+        <div style="font-size:1.7rem; font-weight:700; color:#22c55e;">{value}</div>
+        <div style="font-size:0.85rem; color:#64748b; margin-top:4px;">{subtitle}</div>
+    </div>
+    """, unsafe_allow_html=True)
+
 # ====================== SIVUPALKKI ======================
 if "site_access" not in st.session_state:
     st.session_state.site_access = False
@@ -649,10 +763,31 @@ if "site_access" not in st.session_state:
 if "page" not in st.session_state:
     st.session_state.page = "Etusivu"
 
-if not st.session_state.get("logged_in_user"):
-    st.sidebar.markdown("<div style='height: 75px;'></div>", unsafe_allow_html=True)
+# --- 1. ENSIN KUTSUSALASANA ---
+if not st.session_state.get("site_access"):
+    st.sidebar.markdown("<div style='height: 40px;'></div>", unsafe_allow_html=True)
+    st.sidebar.markdown("")
+    st.sidebar.markdown("")
+    st.sidebar.markdown("")
+    st.sidebar.markdown("### Anna veikkauskisan salasana 🔐")
+    
 
-    with st.sidebar.expander("KIRJAUDU SISÄÄN", expanded=False):
+    site_pw = st.sidebar.text_input("", type="password", key="site_pw_first")
+
+    if st.sidebar.button("Avaa sivusto", type="primary", use_container_width=True):
+        if site_pw == SITE_PASSWORD:
+            st.session_state.site_access = True
+            st.rerun()
+        else:
+            st.sidebar.error("Väärä kutsusalasana")
+
+    page = "Etusivu"
+
+# --- 2. KUTSUSALASANA OK → KIRJAUTUMINEN / REKISTERÖITYMINEN ---
+elif not st.session_state.get("logged_in_user"):
+    st.sidebar.markdown("<div style='height: 20px;'></div>", unsafe_allow_html=True)
+
+    with st.sidebar.expander("KIRJAUDU SISÄÄN", expanded=True):
         username = st.text_input("Käyttäjänimi", key="login_user")
         password = st.text_input("Salasana", type="password", key="login_pass")
 
@@ -664,7 +799,7 @@ if not st.session_state.get("logged_in_user"):
             conn.close()
 
             if row and check_password(password, row["password_hash"]):
-                # Migroi vanha SHA-256-hash bcryptiin automaattisesti
+                # Vanha SHA256 → bcrypt -päivitys tarvittaessa
                 if not row["password_hash"].startswith("$2"):
                     conn2 = get_db_connection()
                     c2 = conn2.cursor()
@@ -676,7 +811,6 @@ if not st.session_state.get("logged_in_user"):
                     conn2.close()
 
                 st.session_state.logged_in_user = username
-                st.session_state.site_access = False
                 st.rerun()
             else:
                 st.error("Väärä käyttäjänimi tai salasana")
@@ -742,112 +876,150 @@ if not st.session_state.get("logged_in_user"):
 
     page = "Etusivu"
 
+# --- 3. KIRJAUTUNUT KÄYTTÄJÄ ---
 else:
-    st.sidebar.markdown("<div style='height: 15px;'></div>", unsafe_allow_html=True)
+    st.sidebar.markdown("<div style='height: 12px;'></div>", unsafe_allow_html=True)
 
-    if not st.session_state.get("site_access"):
-        st.sidebar.markdown("###")
-        st.sidebar.caption("  Veikkauskisan salasanalla sisään...!  ")
-        site_pw = st.sidebar.text_input("", type="password", key="site_pw")
+    menu_options = ["Etusivu", "Kisainfo", "VEIKKAUSKISA", "Veikkaustilanne", "Omat veikkaukset", "Kaikkien veikkaukset", "Hall Of Fame"]
 
-        if st.sidebar.button("Avaa veikkauskisa", type="primary", use_container_width=True):
-            if site_pw == SITE_PASSWORD:
-                st.session_state.site_access = True
-                st.success("Sivusto avattu!")
-                st.rerun()
-            else:
-                st.sidebar.error("Väärä kutsusalasana")
-
-        page = "Etusivu"
-
+    if st.session_state.page == "Admin":
+        page = "Admin"
+        st.sidebar.info("Olet Admin-paneelissa")
+        if st.sidebar.button("← Palaa valikkoon", use_container_width=True):
+            st.session_state.page = "Etusivu"
+            st.rerun()
     else:
-        menu_options = ["Etusivu", "Kisainfo", "VEIKKAUSKISA", "Veikkaustilanne", "Omat veikkaukset", "Kaikkien veikkaukset", "Hall Of Fame"]
+        if st.session_state.page not in menu_options:
+            st.session_state.page = "Etusivu"
 
-        if st.session_state.page == "Admin":
-            page = "Admin"
-            st.sidebar.info("Olet Admin-paneelissa")
-            if st.sidebar.button("← Palaa valikkoon", use_container_width=True):
-                st.session_state.page = "Etusivu"
-                st.rerun()
-        else:
-            if st.session_state.page not in menu_options:
-                st.session_state.page = "Etusivu"
+        selected = st.sidebar.radio(
+            "",
+            menu_options,
+            index=menu_options.index(st.session_state.page),
+            key="menu_radio"
+        )
 
-            selected = st.sidebar.radio(
-                "",
-                menu_options,
-                index=menu_options.index(st.session_state.page),
-                key="menu_radio"
-            )
+        if selected != st.session_state.page:
+            st.session_state.page = selected
+            st.rerun()
 
-            if selected != st.session_state.page:
-                st.session_state.page = selected
-                st.rerun()
+        page = selected
 
-            page = selected
+    rank, total = get_user_rank(st.session_state.logged_in_user)
+    uname = st.session_state.logged_in_user
 
-        rank, total = get_user_rank(st.session_state.logged_in_user)
-        uname = st.session_state.logged_in_user
+    st.sidebar.markdown(f"""
+    <div style="
+        display: flex;
+        justify-content: space-between;
+        align-items: center;
+        background-color: rgba(17, 24, 39, 0.95);
+        border: 1px solid #334155;
+        border-radius: 12px;
+        padding: 11px 14px;
+        margin-bottom: 10px;
+        gap: 10px;
+    ">
+        <span style="
+            color: #e2e8f0;
+            font-weight: 600;
+            overflow: hidden;
+            text-overflow: ellipsis;
+            white-space: nowrap;
+            min-width: 0;
+        ">👤 {html.escape(uname)}</span>
+        <span style="
+            color: #22c55e;
+            font-weight: 700;
+            flex-shrink: 0;
+            white-space: nowrap;
+        ">{rank}/{total}</span>
+    </div>
+    """, unsafe_allow_html=True)
 
-        st.sidebar.markdown(f"""
-        <div style="
-            display: flex;
-            justify-content: space-between;
-            align-items: center;
-            background-color: rgba(13, 19, 33, 0.85);
-            border: 1px solid #ffffff;
-            border-radius: 18px;
-            padding: 10px 14px;
-            margin-bottom: 6px;
-            gap: 10px;
-        ">
-            <span style="
-                color: #ffffff;
-                font-weight: 600;
-                overflow: hidden;
-                text-overflow: ellipsis;
-                white-space: nowrap;
-                min-width: 0;
-            ">👤 {uname}</span>
-            <span style="
-                color: #00ff9d;
-                font-weight: 700;
-                flex-shrink: 0;
-                white-space: nowrap;
-            ">{rank}/{total}</span>
-        </div>
-        """, unsafe_allow_html=True)
+    pad_l, pad_mid, pad_r = st.sidebar.columns([0.9, 9, 0.9])
+    with pad_mid:
+        if st.button("Kirjaudu ulos", use_container_width=True, key="logout_btn"):
+            st.session_state.logged_in_user = None
+            st.session_state.is_admin = False
+            st.session_state.page = "Etusivu"
+            # site_access jätetään Trueksi → ei tarvitse syöttää kutsusalasanaa uudelleen samassa sessiossa
+            st.rerun()
 
-        pad_l, pad_mid, pad_r = st.sidebar.columns([0.9, 9, 0.9])
-        with pad_mid:
-            if st.button("Kirjaudu ulos", use_container_width=True, key="logout_btn"):
-                st.session_state.logged_in_user = None
-                st.session_state.site_access = False
-                st.session_state.is_admin = False
-                st.session_state.page = "Etusivu"
-                st.rerun()
-        
-        with st.sidebar.expander("Admin"):
-            if not st.session_state.get("is_admin", False):
-                pw = st.text_input("Admin-salasana", type="password", key="admin_pw_sidebar")
-                if st.button("Kirjaudu adminiksi", use_container_width=True):
-                    if pw == ADMIN_PASSWORD:
-                        st.session_state.is_admin = True
-                        st.success("Admin-oikeudet myönnetty")
-                        st.rerun()
-                    else:
-                        st.error("Väärä salasana")
-            else:
-                st.success("Olet admin-tilassa")
-                if st.button("Siirry Admin-paneeliin", type="primary", use_container_width=True):
-                    st.session_state.page = "Admin"
+    with st.sidebar.expander("Admin"):
+        if not st.session_state.get("is_admin", False):
+            pw = st.text_input("Admin-salasana", type="password", key="admin_pw_sidebar")
+            if st.button("Kirjaudu adminiksi", use_container_width=True):
+                if pw == ADMIN_PASSWORD:
+                    st.session_state.is_admin = True
+                    st.success("Admin-oikeudet myönnetty")
                     st.rerun()
+                else:
+                    st.error("Väärä salasana")
+        else:
+            st.success("Olet admin-tilassa")
+            if st.button("Siirry Admin-paneeliin", type="primary", use_container_width=True):
+                st.session_state.page = "Admin"
+                st.rerun()
+
+# ====================== SCROLL TO TOP ======================
+import streamlit.components.v1 as components
+
+components.html(
+    """
+    <script>
+        (function() {
+            function scrollTop() {
+                try {
+                    // Kaikki mahdolliset kontainerit Streamlit 1.57:ssä
+                    const containers = [
+                        window.parent.document.querySelector('section[data-testid="stMain"]'),
+                        window.parent.document.querySelector('[data-testid="stAppViewContainer"]'),
+                        window.parent.document.querySelector('section.main'),
+                        window.parent.document.querySelector('.main'),
+                        window.parent.document.querySelector('.stApp'),
+                        window.parent.document.body,
+                        window.parent.document.documentElement
+                    ];
+
+                    containers.forEach(el => {
+                        if (el) {
+                            el.scrollTop = 0;
+                            el.scrollTo(0, 0);
+                        }
+                    });
+
+                    window.parent.scrollTo(0, 0);
+                } catch (e) {}
+            }
+
+            // Pakota heti
+            scrollTop();
+
+            // Jatka pakottamista 1.5 sekuntia
+            let count = 0;
+            const interval = setInterval(() => {
+                scrollTop();
+                count++;
+                if (count > 30) clearInterval(interval);
+            }, 50);
+
+            // Lisävarmistus
+            setTimeout(scrollTop, 200);
+            setTimeout(scrollTop, 500);
+            setTimeout(scrollTop, 1000);
+        })();
+    </script>
+    """,
+    height=0,
+)
+
 
 # ====================== ETUSIVU ======================
 if page == "Etusivu":
     st.markdown("""
     <div class="etusivu-container" style="
-        height: 20vh;
+        height: 18vh;
         display: flex;
         flex-direction: column;
         justify-content: flex-end;
@@ -857,51 +1029,178 @@ if page == "Etusivu":
     ">
         <h1 class="etusivu-otsikko" style="
             font-family: 'Cinzel', serif;
-            font-size: 3.2rem;
+            font-size: 2.9rem;
             font-weight: 700;
-            color: #ffffff;
-            letter-spacing: 3px;
+            color: #f1f5f9;
+            letter-spacing: 2.5px;
             text-shadow: 
-                0 0 10px rgba(255,255,255,0.8),
-                0 0 20px rgba(255,255,255,0.5),
-                0 0 40px rgba(0,255,200,0.4),
-                0 0 80px rgba(0,200,255,0.2);
+                0 0 12px rgba(34, 197, 94, 0.35),
+                0 0 28px rgba(34, 197, 94, 0.15);
             margin: 0;
             white-space: nowrap;
         ">
             Haamuhanskan veikkauskisoja
         </h1>
     </div>
-
     <link href="https://fonts.googleapis.com/css2?family=Cinzel:wght@600;700&display=swap" rel="stylesheet">
     """, unsafe_allow_html=True)
 
+    if st.session_state.get("logged_in_user") and st.session_state.get("site_access"):
+        uname = st.session_state.logged_in_user
+        pts = calculate_user_points(uname)
+        rank, total = get_user_rank(uname)
+        next_m = get_next_open_match()
+
+        # --- Veikkausstatistiikka ---
+        now = datetime.now(HELSINKI)
+        done = 0
+        total_matches = 0
+        open_matches = 0
+
+        for matches in [LIIGA_MATCHES, VALIOLIIGA_MATCHES, EURO_MATCHES, NATIONS_MATCHES, NHL_MATCHES]:
+            for m in matches:
+                total_matches += 1
+                pred = load_prediction(uname, m["id"])
+                if pred:
+                    done += 1
+                if now < m["start"]:
+                    open_matches += 1
+
+        # --- Seuraava kohde ---
+        if next_m:
+            next_txt = f"{next_m['home']} – {next_m['away']}"
+            next_time = next_m["aika"]
+        else:
+            next_txt = "Ei avoimia"
+            next_time = "—"
+
+        c1, c2, c3 = st.columns(3)
+
+        # ========== 1. LAATIKKO: Pisteet + sijoitus ==========
+        with c1:
+            st.markdown(f"""
+            <div style="
+                background: linear-gradient(135deg, #1e293b 0%, #0f172a 100%);
+                border: 1px solid #22c55e;
+                border-radius: 14px;
+                padding: 20px 16px;
+                text-align: center;
+                min-height: 170px;
+                display: flex;
+                flex-direction: column;
+                justify-content: center;
+                box-sizing: border-box;
+            ">
+                <div style="font-size:1.00rem; color:#94a3b8; margin-bottom:8px; letter-spacing:0.3px;">
+                    Omat pisteet
+                </div>
+                <div style="font-size:2.3rem; font-weight:700; color:#22c55e; line-height:1.1;">
+                    {pts}
+                </div>
+                <div style="font-size:0.95rem; color:#94a3b8; margin-top:10px;">
+                    Sijoitus {rank}/{total}
+                </div>
+            </div>
+            """, unsafe_allow_html=True)
+
+        # ========== 2. LAATIKKO: Veikkaukset ==========
+        with c2:
+            st.markdown(f"""
+            <div style="
+                background: linear-gradient(135deg, #1e293b 0%, #0f172a 100%);
+                border: 1px solid #22c55e;
+                border-radius: 14px;
+                padding: 20px 16px;
+                text-align: center;
+                min-height: 170px;
+                display: flex;
+                flex-direction: column;
+                justify-content: center;
+                box-sizing: border-box;
+            ">
+                <div style="font-size:1.00rem; color:#94a3b8; margin-bottom:8px; letter-spacing:0.3px;">
+                    Tallennetut veikkaukset
+                </div>
+                <div style="font-size:2.1rem; font-weight:700; color:#f1f5f9; line-height:1.1;">
+                    {done} / {total_matches}
+                </div>
+                <div style="font-size:0.95rem; color:#94a3b8; margin-top:10px;">
+                    {open_matches} veikkauskohdetta vielä avoinna
+                </div>
+            </div>
+            """, unsafe_allow_html=True)
+
+        # ========== 3. LAATIKKO: Seuraava kohde ==========
+        with c3:
+            st.markdown(f"""
+            <div style="
+                background: linear-gradient(135deg, #1e293b 0%, #0f172a 100%);
+                border: 1px solid #22c55e;
+                border-radius: 14px;
+                padding: 20px 16px;
+                text-align: center;
+                min-height: 170px;
+                display: flex;
+                flex-direction: column;
+                justify-content: center;
+                box-sizing: border-box;
+            ">
+                <div style="font-size:1.00rem; color:#94a3b8; margin-bottom:8px;">Seuraava kohde</div>
+                <div style="font-size:1.25rem; font-weight:700; color:#f1f5f9; line-height:1.3; margin-bottom:6px;">
+                    {html.escape(next_txt)}
+                </div>
+                <div style="font-size:1.25rem; color:#22c55e;">{html.escape(next_time)}</div>
+            </div>
+            """, unsafe_allow_html=True)
+
+        st.markdown("<div style='height:18px;'></div>", unsafe_allow_html=True)
+
+        # Kapeampi ja keskitetty kommenttiosio
+        left, mid, right = st.columns([1, 3, 1])
+
+        with mid:
+            st.markdown("#### Viimeisimmät kommentit")
+            comments = get_comments()[:3]
+            if not comments:
+                st.info("Ei vielä kommentteja.")
+            else:
+                for c in comments:
+                    time_str = c["created_at"][8:10] + "." + c["created_at"][5:7] + ". " + c["created_at"][11:16]
+                    st.markdown(f"""
+                    <div style="
+                        background-color: #1e293b;
+                        padding: 12px 14px;
+                        border-radius: 10px;
+                        margin-bottom: 8px;
+                        border-left: 3px solid #22c55e;
+                    ">
+                        <strong style="color:#f1f5f9;">{html.escape(c['username'])}</strong>
+                        <span style="color:#64748b; font-size:0.85rem; margin-left:8px;">{time_str}</span><br>
+                        <div style="margin-top:4px; color:#cbd5e1;">{html.escape(c['text'][:180])}{'…' if len(c['text']) > 180 else ''}</div>
+                    </div>
+                    """, unsafe_allow_html=True)
+
 # ====================== HALL OF FAME ======================
 if page == "Hall Of Fame":
-    st.title("Hall of Fame")
-    st.caption("Haamuhanskan veikkauskisojen kärkikolmikot ")
-    
+    st.subheader("Hall Of Fame - veikkauskisojen kärkikolmikot")
+    st.divider()
 
-    # ----- Menneet kisat -----
     PAST_CONTESTS = [
         {
             "name": "MM26 -testikisa",
             "date": "Kesä 2026",
-            "participants": 18,
+            "participants": 7,
             "standings": [
                 {"nimi": "Markus", "pisteet": 386},
                 {"nimi": "Tommi", "pisteet": 354},
                 {"nimi": "Tekoäly", "pisteet": 346},
             ]
         },
-        # Lisää uusia menneitä kisoja tähän
     ]
 
-    # Tabit: ensin nykyinen kisa, sitten menneet
     tab_names = ["Syyskuun palloilupaketti"] + [c["name"] for c in PAST_CONTESTS]
     tabs = st.tabs(tab_names)
 
-    # ---------- 1. TAB: KÄYNNISSÄ OLEVA KISA ----------
     with tabs[0]:
         conn = get_db_connection()
         c = conn.cursor()
@@ -921,9 +1220,15 @@ if page == "Hall Of Fame":
             standings.sort(key=lambda x: x["pisteet"], reverse=True)
             top3 = standings[:3]
 
+            st.markdown(f"""
+            <div style="color:#94a3b8; margin-bottom:14px; font-size:0.95rem;">
+                Osallistujia: <b style="color:#e2e8f0;">{len(users)}</b> · Ajankohta: <b style="color:#e2e8f0;">Syyskuu 2026</b>
+            </div>
+            """, unsafe_allow_html=True)
+
             medals = ["🥇", "🥈", "🥉"]
-            colors = ["#FFD700", "#C0C0C0", "#CD7F32"]
-            bg_colors = ["rgba(255, 215, 0, 0.12)", "rgba(192, 192, 192, 0.10)", "rgba(205, 127, 50, 0.10)"]
+            colors = ["#fbbf24", "#94a3b8", "#d97706"]
+            bg_colors = ["rgba(251, 191, 36, 0.10)", "rgba(148, 163, 184, 0.08)", "rgba(217, 119, 6, 0.08)"]
 
             for i, entry in enumerate(top3):
                 st.markdown(f"""
@@ -936,26 +1241,31 @@ if page == "Hall Of Fame":
                     display: flex;
                     align-items: center;
                     justify-content: space-between;
-                    max-width: 350px;
+                    max-width: 420px;
                 ">
                     <div style="display: flex; align-items: center; gap: 14px;">
-                        <span style="font-size: 1.8rem;">{medals[i]}</span>
-                        <div style="font-size: 1.25rem; font-weight: 700; color: #ffffff;">
-                            {entry['nimi']}
+                        <span style="font-size: 1.7rem;">{medals[i]}</span>
+                        <div style="font-size: 1.2rem; font-weight: 700; color: #f1f5f9;">
+                            {html.escape(entry['nimi'])}
                         </div>
                     </div>
-                    <div style="font-size: 1.4rem; font-weight: 700; color: #00ff9d;">
+                    <div style="font-size: 1.35rem; font-weight: 700; color: #22c55e;">
                         {entry['pisteet']} p
                     </div>
                 </div>
                 """, unsafe_allow_html=True)
 
-    # ---------- MENNEET KISAT (sama tyylittely) ----------
     for idx, contest in enumerate(PAST_CONTESTS):
         with tabs[idx + 1]:
+            st.markdown(f"""
+            <div style="color:#94a3b8; margin-bottom:14px; font-size:0.95rem;">
+                Osallistujia: <b style="color:#e2e8f0;">{contest['participants']}</b> · Ajankohta: <b style="color:#e2e8f0;">{contest['date']}</b>
+            </div>
+            """, unsafe_allow_html=True)
+
             medals = ["🥇", "🥈", "🥉"]
-            colors = ["#FFD700", "#C0C0C0", "#CD7F32"]
-            bg_colors = ["rgba(255, 215, 0, 0.12)", "rgba(192, 192, 192, 0.10)", "rgba(205, 127, 50, 0.10)"]
+            colors = ["#fbbf24", "#94a3b8", "#d97706"]
+            bg_colors = ["rgba(251, 191, 36, 0.10)", "rgba(148, 163, 184, 0.08)", "rgba(217, 119, 6, 0.08)"]
 
             for i, entry in enumerate(contest["standings"]):
                 st.markdown(f"""
@@ -968,15 +1278,15 @@ if page == "Hall Of Fame":
                     display: flex;
                     align-items: center;
                     justify-content: space-between;
-                    max-width: 350px;
+                    max-width: 420px;
                 ">
                     <div style="display: flex; align-items: center; gap: 14px;">
-                        <span style="font-size: 1.8rem;">{medals[i]}</span>
-                        <div style="font-size: 1.25rem; font-weight: 700; color: #ffffff;">
-                            {entry['nimi']}
+                        <span style="font-size: 1.7rem;">{medals[i]}</span>
+                        <div style="font-size: 1.2rem; font-weight: 700; color: #f1f5f9;">
+                            {html.escape(entry['nimi'])}
                         </div>
                     </div>
-                    <div style="font-size: 1.4rem; font-weight: 700; color: #00ff9d;">
+                    <div style="font-size: 1.35rem; font-weight: 700; color: #22c55e;">
                         {entry['pisteet']} p
                     </div>
                 </div>
@@ -984,7 +1294,7 @@ if page == "Hall Of Fame":
 
 # ====================== VEIKKAUSKISA ======================
 if page == "VEIKKAUSKISA":
-    st.title("Veikkauskisa - Syyskuun palloilupaketti")
+    st.subheader("Syyskuun palloilupaketti - veikkauslistat")
     st.divider()
 
     tab1, tab2, tab3, tab4, tab5 = st.tabs([
@@ -1010,17 +1320,32 @@ if page == "VEIKKAUSKISA":
             saved = load_prediction(st.session_state.logged_in_user, m["id"])
             has_saved = saved and "home_goals" in saved
 
-            double_txt = " 🔥 TUPLAPISTEET" if m["double"] else ""
+            double_badge = ""
+            if m["double"]:
+                double_badge = (
+                    '<span style="background:linear-gradient(135deg,#f97316,#ef4444);'
+                    'color:white;font-size:0.7rem;font-weight:700;padding:3px 10px;'
+                    'border-radius:999px;margin-left:8px;letter-spacing:0.3px;'
+                    'box-shadow:0 0 10px rgba(249,115,22,0.45);'
+                    'vertical-align:middle;display:inline-block;">🔥 TUPLAPISTEET</span>'
+                )
 
-            st.markdown(f"### {m['home']} – {m['away']}{double_txt}")
-            st.markdown(
-                f"<p style='font-size:1.05rem; color:#aaaaaa; margin-top:-10px; margin-bottom:12px;'>"
-                f"{m['aika']} &nbsp;|&nbsp; Aikaa jäljellä: <b style='color:#00ff9d;'>{countdown}</b></p>",
-                unsafe_allow_html=True
-            )
+            st.markdown(f"""
+            <div style="margin-bottom:4px;">
+                <span style="font-size:1.25rem;font-weight:700;color:#f1f5f9;">
+                    {m['home']} – {m['away']}
+                </span>
+                {double_badge}
+            </div>
+            <div style="font-size:0.88rem;color:#94a3b8;margin-bottom:10px;display:flex;align-items:center;gap:10px;">
+                <span>{m['aika']}</span>
+                <span style="opacity:0.4;">|</span>
+                <span>Aikaa: <b style="color:#22c55e;">{countdown}</b></span>
+            </div>
+            """, unsafe_allow_html=True)
 
             with st.container(border=True):
-                left, right = st.columns([1.4, 1], gap="large")
+                left, right = st.columns([1.5, 1], gap="medium")
 
                 with left:
                     c1, c2 = st.columns(2)
@@ -1041,7 +1366,6 @@ if page == "VEIKKAUSKISA":
                             key=f"{prefix}_{m['id']}_a"
                         )
 
-                    st.markdown("")
                     btn_label = "Päivitä veikkaus" if has_saved else "Tallenna veikkaus"
                     btn_type = "secondary" if has_saved else "primary"
 
@@ -1055,15 +1379,16 @@ if page == "VEIKKAUSKISA":
                     if has_saved:
                         st.markdown(f"""
                         <div style="
-                            background: linear-gradient(135deg, #1e2a44 0%, #152036 100%);
-                            border: 1px solid #00ff9d;
+                            background: linear-gradient(145deg, #1e293b 0%, #0f172a 100%);
+                            border: 1px solid #22c55e;
                             border-radius: 12px;
-                            padding: 22px 20px;
-                            margin-top: 8px;
+                            padding: 14px 12px;
                             text-align: center;
                         ">
-                            <div style="font-size:0.9rem; color:#aaaaaa; margin-bottom:6px;">Tallennettu tulos</div>
-                            <div style="font-size:2rem; font-weight:700; color:#ffffff;">
+                            <div style="font-size:0.72rem; color:#94a3b8; margin-bottom:4px; letter-spacing:0.3px;">
+                                TALLENNETTU
+                            </div>
+                            <div style="font-size:1.55rem; font-weight:700; color:#f1f5f9; line-height:1.1;">
                                 {saved['home_goals']} – {saved['away_goals']}
                             </div>
                         </div>
@@ -1071,23 +1396,24 @@ if page == "VEIKKAUSKISA":
                     else:
                         st.markdown("""
                         <div style="
-                            background-color: #1a2332;
-                            border: 1px dashed #3a4a63;
+                            background-color: #0f172a;
+                            border: 1px dashed #334155;
                             border-radius: 12px;
-                            padding: 28px 20px;
+                            padding: 18px 12px;
                             text-align: center;
-                            color: #666;
-                            margin-top: 8px;
+                            color: #64748b;
+                            font-size: 0.85rem;
+                            line-height: 1.4;
                         ">
-                            Ei vielä tallennettua<br>veikkausta
+                            Ei vielä<br>tallennettua veikkausta
                         </div>
                         """, unsafe_allow_html=True)
 
-            st.write("")
+            st.markdown("<div style='height: 12px;'></div>", unsafe_allow_html=True)
 
     def render_nhl_list(matches):
         now = datetime.now(HELSINKI)
-        
+
         for m in matches:
             if now >= m["start"]:
                 continue
@@ -1101,17 +1427,32 @@ if page == "VEIKKAUSKISA":
             saved = load_prediction(st.session_state.logged_in_user, m["id"])
             has_saved = saved and "mark" in saved
 
-            double_txt = " 🔥 TUPLAPISTEET" if m["double"] else ""
+            double_badge = ""
+            if m["double"]:
+                double_badge = (
+                    '<span style="background:linear-gradient(135deg,#f97316,#ef4444);'
+                    'color:white;font-size:0.7rem;font-weight:700;padding:3px 10px;'
+                    'border-radius:999px;margin-left:8px;letter-spacing:0.3px;'
+                    'box-shadow:0 0 10px rgba(249,115,22,0.45);'
+                    'vertical-align:middle;display:inline-block;">🔥 TUPLAPISTEET</span>'
+                )
 
-            st.markdown(f"### {m['home']} – {m['away']}{double_txt}")
-            st.markdown(
-                f"<p style='font-size:1.05rem; color:#aaaaaa; margin-top:-10px; margin-bottom:12px;'>"
-                f"{m['aika']} &nbsp;|&nbsp; Aikaa jäljellä: <b style='color:#00ff9d;'>{countdown}</b></p>",
-                unsafe_allow_html=True
-            )
+            st.markdown(f"""
+            <div style="margin-bottom:4px;">
+                <span style="font-size:1.25rem;font-weight:700;color:#f1f5f9;">
+                    {m['home']} – {m['away']}
+                </span>
+                {double_badge}
+            </div>
+            <div style="font-size:0.88rem;color:#94a3b8;margin-bottom:10px;display:flex;align-items:center;gap:10px;">
+                <span>{m['aika']}</span>
+                <span style="opacity:0.4;">|</span>
+                <span>Aikaa: <b style="color:#22c55e;">{countdown}</b></span>
+            </div>
+            """, unsafe_allow_html=True)
 
             with st.container(border=True):
-                left, right = st.columns([1.3, 1], gap="large")
+                left, right = st.columns([1.4, 1], gap="medium")
 
                 with left:
                     st.markdown("##### 1X2")
@@ -1124,8 +1465,6 @@ if page == "VEIKKAUSKISA":
                         key=f"nhl_mark_{m['id']}",
                         label_visibility="collapsed"
                     )
-
-                    st.markdown("")
 
                     st.markdown("##### Moniveto")
                     default_split = saved.get("split", "2-2") if saved else "2-2"
@@ -1151,23 +1490,20 @@ if page == "VEIKKAUSKISA":
                     with c1:
                         home_opts = st.multiselect(
                             f"**{m['home']}** ({home_count} kpl)",
-                            options=list(range(0, 9)),
-                            default=[x for x in default_home if x <= 8][:home_count],
-                            max_selections=home_count,
+                            options=list(range(0, 13)),
+                            default=[x for x in default_home if x <= 12][:home_count],
                             key=f"nhl_home_{m['id']}",
                             placeholder="Valitse maalimäärät"
                         )
                     with c2:
                         away_opts = st.multiselect(
                             f"**{m['away']}** ({away_count} kpl)",
-                            options=list(range(0, 9)),
-                            default=[x for x in default_away if x <= 8][:away_count],
-                            max_selections=away_count,
+                            options=list(range(0, 13)),
+                            default=[x for x in default_away if x <= 12][:away_count],
                             key=f"nhl_away_{m['id']}",
                             placeholder="Valitse maalimäärät"
                         )
 
-                    st.markdown("")
                     btn_label = "Päivitä veikkaus" if has_saved else "Tallenna veikkaus"
                     btn_type = "secondary" if has_saved else "primary"
 
@@ -1189,44 +1525,47 @@ if page == "VEIKKAUSKISA":
                     if has_saved:
                         combos = [f"{h}–{a}" for h in saved.get("home_opts", []) for a in saved.get("away_opts", [])]
                         combos_text = ", ".join(combos) if combos else "–"
-                        mark = saved.get("mark", "-")
-                        split = saved.get("split", "-")
+                        mark_val = saved.get("mark", "-")
+                        split_val = saved.get("split", "-")
 
-                        st.markdown(
-                            f"""
-                            <div style="background:linear-gradient(135deg,#1e2a44 0%,#152036 100%);
-                                        border:1px solid #00ff9d; border-radius:12px;
-                                        padding:20px 18px; margin-top:8px; text-align:center;">
-                                <div style="font-size:0.9rem; color:#aaaaaa; margin-bottom:12px;">
-                                    Tallennettu tulos
-                                </div>
-                                <div style="margin-bottom:14px;">
-                                    <div style="font-size:0.85rem; color:#aaaaaa;">1X2</div>
-                                    <div style="font-size:1.6rem; font-weight:700; color:#ffffff;">{mark}</div>
-                                </div>
-                                <div>
-                                    <div style="font-size:0.85rem; color:#aaaaaa;">Moniveto ({split})</div>
-                                    <div style="font-size:1.05rem; color:#00ff9d; line-height:1.5; margin-top:4px;">
-                                        {combos_text}
-                                    </div>
+                        st.markdown(f"""
+                        <div style="
+                            background: linear-gradient(145deg, #1e293b 0%, #0f172a 100%);
+                            border: 1px solid #22c55e;
+                            border-radius: 12px;
+                            padding: 14px 12px;
+                            text-align: center;
+                        ">
+                            <div style="font-size:0.72rem; color:#94a3b8; margin-bottom:8px;">TALLENNETTU</div>
+                            <div style="margin-bottom:8px;">
+                                <div style="font-size:0.72rem; color:#94a3b8;">1X2</div>
+                                <div style="font-size:1.35rem; font-weight:700; color:#f1f5f9;">{mark_val}</div>
+                            </div>
+                            <div>
+                                <div style="font-size:0.72rem; color:#94a3b8;">Moniveto ({split_val})</div>
+                                <div style="font-size:0.9rem; color:#22c55e; line-height:1.4; margin-top:2px;">
+                                    {combos_text}
                                 </div>
                             </div>
-                            """,
-                            unsafe_allow_html=True
-                        )
+                        </div>
+                        """, unsafe_allow_html=True)
                     else:
-                        st.markdown(
-                            """
-                            <div style="background-color:#1a2332; border:1px dashed #3a4a63;
-                                        border-radius:12px; padding:28px 20px; text-align:center;
-                                        color:#666; margin-top:8px;">
-                                Ei vielä tallennettua<br>veikkausta
-                            </div>
-                            """,
-                            unsafe_allow_html=True
-                        )
+                        st.markdown("""
+                        <div style="
+                            background-color: #0f172a;
+                            border: 1px dashed #334155;
+                            border-radius: 12px;
+                            padding: 18px 12px;
+                            text-align: center;
+                            color: #64748b;
+                            font-size: 0.85rem;
+                            line-height: 1.4;
+                        ">
+                            Ei vielä<br>tallennettua veikkausta
+                        </div>
+                        """, unsafe_allow_html=True)
 
-            st.write("")
+            st.markdown("<div style='height: 12px;'></div>", unsafe_allow_html=True)
 
     with tab1:
         render_match_list(LIIGA_MATCHES, "l1")
@@ -1241,15 +1580,11 @@ if page == "VEIKKAUSKISA":
 
 # ====================== VEIKKAUSTILANNE ======================
 if page == "Veikkaustilanne":
-    st.title("Syyskuun palloilupaketti")
-    st.divider()
 
-    col_rank, col_chat = st.columns([1, 1.4], gap="large")
+    col_rank, col_chat = st.columns([1.05, 1.75], gap="large")
 
-    # ==================== TILANNE ====================
     with col_rank:
         st.subheader("🏆 Veikkaustilanne")
-        st.divider()
 
         conn = get_db_connection()
         c = conn.cursor()
@@ -1260,57 +1595,182 @@ if page == "Veikkaustilanne":
         if not users:
             st.info("Ei vielä yhtään rekisteröitynyttä pelaajaa.")
         else:
-            standings = []
-            for username in users:
-                points = calculate_user_points(username)
-                standings.append({
-                    "nimi": username,
-                    "pisteet": points
-                })
+            # Apufunktio: laskee reaaliaikaisen % kirjatusta otteluista
+            def get_completed_percentage(username, matches):
+                user_pts = 0
+                max_pts = 0
+                for m in matches:
+                    real = load_real_result("match", m["id"])
+                    if real is None:
+                        continue
+                    match_max = 20 if m.get("double") else 10
+                    max_pts += match_max
+                    pred = load_prediction(username, m["id"])
+                    user_pts += calculate_match_points(pred, real, double=m["double"])
+                if max_pts == 0:
+                    return 0
+                return min(100, int(user_pts / max_pts * 100))
 
-            standings.sort(key=lambda x: (-x["pisteet"], x["nimi"].lower()))
+            tab_labels = ["Kokonaistilanne", "Lista 1", "Lista 2", "Lista 3", "Lista 4", "Lista 5"]
+            tabs = st.tabs(tab_labels)
 
-            for i, entry in enumerate(standings, start=1):
-                is_me = entry["nimi"] == st.session_state.logged_in_user
-                
-                if is_me:
-                    bg = "rgba(0, 255, 157, 0.12)"
-                    border = "#00ff9d"
-                    name_color = "#00ff9d"
-                    weight = "700"
-                else:
-                    bg = "rgba(30, 42, 68, 0.6)"
-                    border = "#2a3548"
-                    name_color = "#ffffff"
-                    weight = "500"
+            # ========== KOKONAISTILANNE ==========
+            with tabs[0]:
+                all_matches = LIIGA_MATCHES + VALIOLIIGA_MATCHES + EURO_MATCHES + NATIONS_MATCHES + NHL_MATCHES
 
-                st.markdown(f"""
-                <div style="
-                    display: flex;
-                    justify-content: space-between;
-                    align-items: center;
-                    background-color: {bg};
-                    border: 1px solid {border};
-                    border-radius: 10px;
-                    padding: 10px 14px;
-                    margin-bottom: 6px;
-                ">
-                    <div style="display: flex; align-items: center; gap: 10px;">
-                        <span style="color: #888; min-width: 1.6rem; font-weight: 600;">{i}.</span>
-                        <span style="color: {name_color}; font-weight: {weight};">{entry['nimi']}</span>
+                standings = []
+                for username in users:
+                    points = calculate_user_points(username)
+                    pct = get_completed_percentage(username, all_matches)
+                    standings.append({
+                        "nimi": username,
+                        "pisteet": points,
+                        "pct": pct
+                    })
+
+                standings.sort(key=lambda x: (-x["pisteet"], x["nimi"].lower()))
+
+                for i, entry in enumerate(standings, start=1):
+                    is_me = entry["nimi"] == st.session_state.logged_in_user
+
+                    if is_me:
+                        bg = "rgba(34, 197, 94, 0.14)"
+                        border = "#22c55e"
+                        name_color = "#22c55e"
+                        weight = "700"
+                    else:
+                        bg = "rgba(30, 41, 59, 0.55)"
+                        border = "#1e293b"
+                        name_color = "#e2e8f0"
+                        weight = "500"
+
+                    medal = ""
+                    if i == 1:
+                        medal = " "
+                    elif i == 2:
+                        medal = " "
+                    elif i == 3:
+                        medal = " "
+
+                    st.markdown(f"""
+                    <div style="
+                        background-color: {bg};
+                        border: 1px solid {border};
+                        border-radius: 12px;
+                        padding: 12px 14px;
+                        margin-bottom: 8px;
+                    ">
+                        <div style="display:flex; justify-content:space-between; align-items:center;">
+                            <div style="display:flex; align-items:center; gap:10px;">
+                                <span style="color:#64748b; min-width:1.8rem; font-weight:700; font-size:1.05rem;">{i}.</span>
+                                <span style="color:{name_color}; font-weight:{weight};">{medal}{html.escape(entry['nimi'])}</span>
+                            </div>
+                            <span style="font-weight:700; color:#22c55e; font-size:1.15rem;">
+                                {entry['pisteet']}
+                            </span>
+                        </div>
+                        <div style="display:flex; align-items:center; gap:8px; margin-top:7px;">
+                            <div class="rank-bar-bg" style="flex:1; margin-top:0;">
+                                <div class="rank-bar-fill" style="width:{entry['pct']}%;"></div>
+                            </div>
+                            <span style="font-size:0.75rem; color:#94a3b8; min-width:32px; text-align:right;">{entry['pct']}%</span>
+                        </div>
                     </div>
-                    <span style="font-weight: 700; color: #00ff9d; font-size: 1.1rem;">
-                        {entry['pisteet']}
-                    </span>
-                </div>
-                """, unsafe_allow_html=True)
+                    """, unsafe_allow_html=True)
 
-    # ==================== KESKUSTELU ====================
+            # ========== LISTAKOHTAISET RANKINGIT ==========
+            list_full_names = [
+                "Lista 1 - SM-liigan arkipelit",
+                "Lista 2 - Valioliigakierros",
+                "Lista 3 - Europelien helmiä",
+                "Lista 4 - Kansojen liigan pelejä",
+                "Lista 5 - NHL-Tusina"
+            ]
+
+            for tab_idx, (list_name, matches) in enumerate(ALL_MATCH_LISTS_DATA):
+                with tabs[tab_idx + 1]:
+                    full_name = list_full_names[tab_idx]
+
+                    st.markdown(f"""
+                    <div style="
+                        background: rgba(30, 41, 59, 0.6);
+                        border: 1px solid #334155;
+                        border-radius: 10px;
+                        padding: 10px 14px;
+                        margin-bottom: 14px;
+                        font-size: 0.9rem;
+                        color: #94a3b8;
+                        line-height: 1.45;
+                    ">
+                        <b style="color:#e2e8f0;">{full_name}</b><br>
+                        Bonuspisteet jaetaan, kun lista on pelattu!
+                    </div>
+                    """, unsafe_allow_html=True)
+
+                    standings = []
+                    for username in users:
+                        list_pts, _, _ = calculate_list_points(username, matches)
+                        pct = get_completed_percentage(username, matches)
+                        standings.append({
+                            "nimi": username,
+                            "pisteet": list_pts,
+                            "pct": pct
+                        })
+
+                    standings.sort(key=lambda x: (-x["pisteet"], x["nimi"].lower()))
+
+                    for i, entry in enumerate(standings, start=1):
+                        is_me = entry["nimi"] == st.session_state.logged_in_user
+
+                        if is_me:
+                            bg = "rgba(34, 197, 94, 0.14)"
+                            border = "#22c55e"
+                            name_color = "#22c55e"
+                            weight = "700"
+                        else:
+                            bg = "rgba(30, 41, 59, 0.55)"
+                            border = "#1e293b"
+                            name_color = "#e2e8f0"
+                            weight = "500"
+
+                        medal = ""
+                        if i == 1:
+                            medal = " "
+                        elif i == 2:
+                            medal = " "
+                        elif i == 3:
+                            medal = " "
+
+                        st.markdown(f"""
+                        <div style="
+                            background-color: {bg};
+                            border: 1px solid {border};
+                            border-radius: 12px;
+                            padding: 12px 14px;
+                            margin-bottom: 8px;
+                        ">
+                            <div style="display:flex; justify-content:space-between; align-items:center;">
+                                <div style="display:flex; align-items:center; gap:10px;">
+                                    <span style="color:#64748b; min-width:1.8rem; font-weight:700; font-size:1.05rem;">{i}.</span>
+                                    <span style="color:{name_color}; font-weight:{weight};">{medal}{html.escape(entry['nimi'])}</span>
+                                </div>
+                                <span style="font-weight:700; color:#22c55e; font-size:1.15rem;">
+                                    {entry['pisteet']}
+                                </span>
+                            </div>
+                            <div style="display:flex; align-items:center; gap:8px; margin-top:7px;">
+                                <div class="rank-bar-bg" style="flex:1; margin-top:0;">
+                                    <div class="rank-bar-fill" style="width:{entry['pct']}%;"></div>
+                                </div>
+                                <span style="font-size:0.75rem; color:#94a3b8; min-width:32px; text-align:right;">{entry['pct']}%</span>
+                            </div>
+                        </div>
+                        """, unsafe_allow_html=True)
+
     with col_chat:
-        st.subheader("📣 Sana on vapaa...!")
-        st.divider()
+        st.subheader("📣 Sana on vapaa!")
+        
 
-        # ----- Näytä kommentit -----
         comments = get_comments()
         comments_per_page = 5
         total_pages = max(1, (len(comments) + comments_per_page - 1) // comments_per_page)
@@ -1336,21 +1796,24 @@ if page == "Veikkaustilanne":
                 if c["edited_at"]:
                     time_str += " (muokattu)"
 
+                border_col = "#22c55e" if is_own else "#334155"
+                bg_col = "rgba(34, 197, 94, 0.08)" if is_own else "#1e293b"
+
                 col_msg, col_btn = st.columns([5, 1])
                 
                 with col_msg:
                     st.markdown(f"""
                         <div style="
-                            background-color: #1e2a44;
+                            background-color: {bg_col};
                             padding: 14px 16px;
                             border-radius: 12px;
                             margin-bottom: 8px;
-                            border-left: 5px solid #00ff9d;
+                            border-left: 4px solid {border_col};
                         ">
-                            <strong style="color:#ffffff;">{c['username']}</strong>
-                            <span style="color:#888; font-size:0.85rem; margin-left:8px;">{time_str}</span><br>
-                            <div style="margin-top:6px; color:#dddddd; line-height:1.45;">
-                                {c['text']}
+                            <strong style="color:#f1f5f9;">{html.escape(c['username'])}</strong>
+                            <span style="color:#64748b; font-size:0.85rem; margin-left:8px;">{time_str}</span><br>
+                            <div style="margin-top:6px; color:#cbd5e1; line-height:1.45;">
+                                {html.escape(c['text'])}
                             </div>
                         </div>
                     """, unsafe_allow_html=True)
@@ -1364,7 +1827,6 @@ if page == "Veikkaustilanne":
         else:
             st.info("Ei vielä kommentteja. Ole ensimmäinen!")
 
-        # ----- Sivutus -----
         if total_pages > 1:
             c1, c2, c3 = st.columns([1, 1.2, 1])
             with c1:
@@ -1373,7 +1835,7 @@ if page == "Veikkaustilanne":
                     st.rerun()
             with c2:
                 st.markdown(
-                    f"<div style='text-align:center; padding-top:8px; color:#aaaaaa;'>"
+                    f"<div style='text-align:center; padding-top:8px; color:#94a3b8;'>"
                     f"Sivu {current_page} / {total_pages}</div>",
                     unsafe_allow_html=True
                 )
@@ -1382,9 +1844,8 @@ if page == "Veikkaustilanne":
                     st.session_state.comment_page = current_page + 1
                     st.rerun()
 
-        st.markdown("---")
+        st.markdown("<div style='height:10px;'></div>", unsafe_allow_html=True)
 
-        # ----- Muokkaus + Poisto -----
         if st.session_state.get("editing_comment") is not None:
             comment_id = st.session_state.editing_comment
             current = next((c for c in comments if c["id"] == comment_id), None)
@@ -1409,7 +1870,6 @@ if page == "Veikkaustilanne":
                         st.rerun()
                 
                 with c3:
-                    # Poisto vahvistuksella
                     if st.session_state.get(f"confirm_delete_{comment_id}", False):
                         if st.button("Vahvista poisto", type="primary", key=f"confirm_del_{comment_id}"):
                             delete_comment(comment_id)
@@ -1422,9 +1882,6 @@ if page == "Veikkaustilanne":
                             st.session_state[f"confirm_delete_{comment_id}"] = True
                             st.rerun()
 
-                st.markdown("---")
-
-        # ----- Kirjoituslaatikko (alhaalla) -----
         if st.session_state.get("logged_in_user"):
             with st.form("comment_form", clear_on_submit=True):
                 new_comment = st.text_area(
@@ -1444,9 +1901,13 @@ if page == "Veikkaustilanne":
             st.warning("Kirjaudu sisään kirjoittaaksesi kommentteja.")
 
 
+
+
+
+
 # ====================== OMAT VEIKKAUKSET ======================
 if page == "Omat veikkaukset":
-    st.title("Omat veikkaukset")
+    st.subheader("Omat veikkaukset")
     st.divider()
 
     tab1, tab2, tab3, tab4, tab5 = st.tabs([
@@ -1458,101 +1919,92 @@ if page == "Omat veikkaukset":
     ])
 
     def render_own_list(matches, list_name):
+        uname = st.session_state.logged_in_user
+        list_pts, done, total_m = calculate_list_points(uname, matches)
+        summary_card(
+            f"Yhteensä",
+            f"{list_pts} pistettä",
+            f"{done}/{total_m} veikkausta tallennettu"
+        )
+
         found_any = False
-        total_points = 0
 
         for m in matches:
-            saved = load_prediction(st.session_state.logged_in_user, m["id"])
+            saved = load_prediction(uname, m["id"])
             if not saved:
                 continue
 
             found_any = True
             real = load_real_result("match", m["id"])
             points = calculate_match_points(saved, real, double=m["double"])
-            total_points += points
 
-            double_txt = " 🔥 TUPLAPISTEET" if m["double"] else ""
+            double_txt = " 🔥 " if m["double"] else ""
 
-            # ----- Otsikko -----
             st.markdown(f"### {m['home']} – {m['away']}{double_txt}")
             st.markdown(
-                f"<p style='font-size:0.95rem; color:#aaaaaa; margin-top:-10px; margin-bottom:10px;'>"
+                f"<p style='font-size:0.9rem; color:#94a3b8; margin-top:-6px; margin-bottom:10px;'>"
                 f"{m['aika']}</p>",
                 unsafe_allow_html=True
             )
 
-            # ----- Kortti -----
             with st.container(border=True):
                 col1, col2, col3 = st.columns([1.4, 1.4, 1])
 
-                # --- Oma veikkaus ---
                 with col1:
-                    if "mark" in saved:  # NHL
+                    if "mark" in saved:
                         combos = [f"{h}–{a}" for h in saved.get("home_opts", []) for a in saved.get("away_opts", [])]
                         combos_text = ", ".join(combos) if combos else "–"
                         st.markdown(f"""
-                        <div style="font-size:0.8rem; color:#aaaaaa; margin-bottom:6px;">Oma veikkaus</div>
-                        <div style="font-size:1.05rem; color:#ffffff; line-height:1.4;">
+                        <div style="font-size:0.78rem; color:#94a3b8; margin-bottom:6px;">Oma veikkaus</div>
+                        <div style="font-size:1.0rem; color:#e2e8f0; line-height:1.4;">
                             <b>1X2:</b> {saved.get('mark')}<br>
                             <b>Moniveto:</b> {combos_text}
                         </div>
                         """, unsafe_allow_html=True)
                     else:
                         st.markdown(f"""
-                        <div style="font-size:0.8rem; color:#aaaaaa; margin-bottom:6px;">Oma veikkaus</div>
-                        <div style="font-size:1.5rem; font-weight:700; color:#ffffff;">
+                        <div style="font-size:0.78rem; color:#94a3b8; margin-bottom:6px;">Oma veikkaus</div>
+                        <div style="font-size:1.45rem; font-weight:700; color:#f1f5f9;">
                             {saved.get('home_goals')} – {saved.get('away_goals')}
                         </div>
                         """, unsafe_allow_html=True)
 
-                # --- Oikea tulos ---
                 with col2:
                     if real:
                         st.markdown(f"""
-                        <div style="font-size:0.8rem; color:#aaaaaa; margin-bottom:6px;">Oikea tulos</div>
-                        <div style="font-size:1.5rem; font-weight:700; color:#00ff9d;">
+                        <div style="font-size:0.78rem; color:#94a3b8; margin-bottom:6px;">Oikea tulos</div>
+                        <div style="font-size:1.45rem; font-weight:700; color:#22c55e;">
                             {real['home_goals']} – {real['away_goals']}
                         </div>
                         """, unsafe_allow_html=True)
                     else:
                         st.markdown(f"""
-                        <div style="font-size:0.8rem; color:#aaaaaa; margin-bottom:6px;">Oikea tulos</div>
-                        <div style="font-size:1.15rem; color:#666;">
-                            Ei vielä syötetty
+                        <div style="font-size:0.78rem; color:#94a3b8; margin-bottom:6px;">Oikea tulos</div>
+                        <div style="font-size:1.1rem; color:#64748b;">
+                            Tulosta odotellessa...
                         </div>
                         """, unsafe_allow_html=True)
 
-                # --- Pisteet (ilman laatikkoa) ---
                 with col3:
-                    points_color = "#00ff9d" if points > 0 else "#888888"
+                    if points >= 8:
+                        points_color = "#22c55e"
+                    elif points >= 4:
+                        points_color = "#fbbf24"
+                    elif points > 0:
+                        points_color = "#94a3b8"
+                    else:
+                        points_color = "#64748b"
                     st.markdown(f"""
-                    <div style="font-size:0.8rem; color:#aaaaaa; margin-bottom:6px;">Pisteet</div>
-                    <div style="font-size:1.5rem; font-weight:700; color:{points_color};">
+                    <div style="font-size:0.78rem; color:#94a3b8; margin-bottom:6px;">Pisteet</div>
+                    <div style="font-size:1.55rem; font-weight:700; color:{points_color};">
                         {points}
                     </div>
                     """, unsafe_allow_html=True)
 
-            st.write("")
+            st.markdown("<div style='height:8px;'></div>", unsafe_allow_html=True)
 
         if not found_any:
             st.info("Et ole vielä tallentanut yhtään veikkausta tälle listalle.")
-        else:
-            st.markdown(f"""
-            <div style="
-                background: linear-gradient(135deg, #0d1321 0%, #152036 100%);
-                border: 2px solid #00ff9d;
-                border-radius: 14px;
-                padding: 26px 24px;
-                margin-top: 8px;
-                text-align: center;
-                max-width: 380px;
-            ">
-                <div style="font-size:1rem; color:#aaaaaa; margin-bottom:2px;">Yhteensä {list_name}</div>
-                <div style="font-size:1.7rem; font-weight:700; color:#00ff9d;">
-                    {total_points} pistettä
-                </div>
-            </div>
-            """, unsafe_allow_html=True)
 
     with tab1:
         render_own_list(LIIGA_MATCHES, "Lista 1")
@@ -1566,10 +2018,9 @@ if page == "Omat veikkaukset":
         render_own_list(NHL_MATCHES, "Lista 5")
 
 
-
 # ====================== KAIKKIEN VEIKKAUKSET ======================
 if page == "Kaikkien veikkaukset":
-    st.title("Kaikkien veikkaukset")
+    st.subheader("Kaikkien veikkaukset")
     st.divider()
 
     tab1, tab2, tab3, tab4, tab5 = st.tabs([
@@ -1585,6 +2036,18 @@ if page == "Kaikkien veikkaukset":
         shown_any = False
         me = st.session_state.logged_in_user
 
+        closed_count = 0
+        for m in matches:
+            real = load_real_result("match", m["id"])
+            if now >= m["start"] or real is not None:
+                closed_count += 1
+
+        summary_card(
+            f"{list_name}",
+            f"{closed_count}/{len(matches)}",
+            "Näkymässä vain sulkeutuneet veikkauskohteet"
+        )
+
         for m in matches:
             real = load_real_result("match", m["id"])
             is_closed = now >= m["start"] or real is not None
@@ -1594,29 +2057,27 @@ if page == "Kaikkien veikkaukset":
 
             shown_any = True
             all_preds = load_all_predictions_for_match(m["id"])
-            double_txt = " 🔥 TUPLAPISTEET" if m["double"] else ""
+            double_txt = " 🔥 " if m["double"] else ""
 
-            # ----- Otsikko -----
             st.markdown(f"### {m['home']} – {m['away']}{double_txt}")
             st.markdown(
-                f"<p style='font-size:0.95rem; color:#aaaaaa; margin-top:-10px; margin-bottom:10px;'>"
+                f"<p style='font-size:0.9rem; color:#94a3b8; margin-top:-6px; margin-bottom:10px;'>"
                 f"{m['aika']}</p>",
                 unsafe_allow_html=True
             )
 
-            # ----- Tuloslaatikko -----
             if real:
                 st.markdown(f"""
                 <div style="
-                    background: linear-gradient(135deg, #1e2a44 0%, #152036 100%);
-                    border: 1px solid #00ff9d;
+                    background: linear-gradient(135deg, #1e293b 0%, #0f172a 100%);
+                    border: 1px solid #22c55e;
                     border-radius: 10px;
-                    padding: 8px 18px;
-                    margin-bottom: 14px;
+                    padding: 7px 16px;
+                    margin-bottom: 12px;
                     display: inline-block;
-                    font-size: 1.25rem;
+                    font-size: 1.2rem;
                     font-weight: 700;
-                    color: #00ff9d;
+                    color: #22c55e;
                 ">
                     {real['home_goals']} – {real['away_goals']}
                 </div>
@@ -1624,14 +2085,14 @@ if page == "Kaikkien veikkaukset":
             else:
                 st.markdown("""
                 <div style="
-                    background: #1a2332;
-                    border: 1px dashed #3a4a63;
+                    background: #0f172a;
+                    border: 1px dashed #334155;
                     border-radius: 10px;
-                    padding: 8px 18px;
-                    margin-bottom: 14px;
+                    padding: 7px 16px;
+                    margin-bottom: 12px;
                     display: inline-block;
-                    font-size: 1.25rem;
-                    color: #666;
+                    font-size: 1.15rem;
+                    color: #64748b;
                 ">
                     –
                 </div>
@@ -1639,13 +2100,12 @@ if page == "Kaikkien veikkaukset":
 
             if not all_preds:
                 st.info("Ei vielä yhtään veikkausta tälle ottelulle.")
-                st.write("")
+                st.markdown("<div style='height:8px;'></div>", unsafe_allow_html=True)
                 continue
 
-            # ----- Kerätään ja järjestetään rivit -----
             rows = []
             for username, pred in all_preds.items():
-                if "mark" in pred:  # NHL
+                if "mark" in pred:
                     combos = [f"{h}–{a}" for h in pred.get("home_opts", []) for a in pred.get("away_opts", [])]
                     score_str = f"1X2:{pred.get('mark')} | {', '.join(combos)}"
                 else:
@@ -1658,44 +2118,61 @@ if page == "Kaikkien veikkaukset":
                     "points": pts
                 })
 
+            if not rows:
+                st.info("Ei näytettäviä veikkauksia.")
+                st.markdown("<div style='height:8px;'></div>", unsafe_allow_html=True)
+                continue
+
             if real:
                 rows.sort(key=lambda x: (-x["points"], x["username"].lower()))
             else:
                 rows.sort(key=lambda x: x["username"].lower())
 
-            # ----- Expander (kapeampi) -----
-            col_exp, _ = st.columns([1.1, 1.5])
+            col_exp, _ = st.columns([1.2, 1.3])
             with col_exp:
                 with st.expander(f"Veikkaukset ja pisteet ({len(rows)})", expanded=False):
                     for row in rows:
                         is_me = row["username"] == me
-                        name_style = "color:#00ff9d; font-weight:700;" if is_me else "color:#ffffff;"
+                        name_style = "color:#22c55e; font-weight:700;" if is_me else "color:#e2e8f0;"
                         
                         if real:
-                            pts_html = f"<span style='color:#00ff9d; font-weight:700;'>{row['points']} p</span>"
+                            p = row["points"]
+                            if p >= 8:
+                                pc = "#22c55e"
+                            elif p >= 4:
+                                pc = "#fbbf24"
+                            elif p > 0:
+                                pc = "#94a3b8"
+                            else:
+                                pc = "#64748b"
+                            pts_html = f"<span style='color:{pc}; font-weight:700;'>{p} p</span>"
                         else:
-                            pts_html = "<span style='color:#666;'>—</span>"
+                            pts_html = "<span style='color:#64748b;'>—</span>"
 
                         st.markdown(f"""
                         <div style="
                             display: flex;
-                            justify-content: space-between;
                             align-items: center;
-                            background-color: #0d1321;
-                            padding: 8px 12px;
+                            background-color: #0f172a;
+                            padding: 9px 12px;
                             border-radius: 8px;
                             margin-bottom: 5px;
-                            border: 1px solid #2a3548;
+                            border: 1px solid #1e293b;
+                            gap: 14px;
                         ">
-                            <div style="display:flex; align-items:center; gap:10px;">
-                                <span style="{name_style}">{row['username']}</span>
-                                <span style="color:#cccccc;">{row['score']}</span>
+                            <span style="{name_style} min-width: 160px; max-width: 160px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; flex-shrink: 0;">
+                                {html.escape(row['username'])}
+                            </span>
+                            <span style="color:#cbd5e1; flex: 1; min-width: 0;">
+                                {html.escape(row['score'])}
+                            </span>
+                            <div style="min-width: 48px; text-align: right; flex-shrink: 0;">
+                                {pts_html}
                             </div>
-                            <div>{pts_html}</div>
                         </div>
                         """, unsafe_allow_html=True)
 
-            st.write("")
+            st.markdown("<div style='height:8px;'></div>", unsafe_allow_html=True)
 
         if not shown_any:
             st.info(f"Ei vielä yhtään suljettua ottelua listalla {list_name}.")
@@ -1713,92 +2190,95 @@ if page == "Kaikkien veikkaukset":
 
 # ====================== KISAINFON ======================
 if page == "Kisainfo":
-    st.title("Tervetuloa veikkaamaan!")
-    st.divider()
+    page_header("Tervetuloa veikkaamaan!", "Syyskuun palloilupaketti- veikkauskisa sisältää viisi erillistä veikkauslistaa ja yhteensä 56 peliä. Veikattavana on jääkiekkoa Suomesta ja rapakon takaa sekä jalkapalloa ympäri Eurooppaa niin seura- kuin maajoukkuetasolta. Yksittäisen listan kärkikolmikolle on luvassa bonuspisteitä, mutta koko kisan kuittaa itselleen tietenkin pärjäämällä parhaiten kaikissa viidessä listassa yhteensä. Onnea veikkauksiin!")
 
-    # ----- Johdanto -----
     st.markdown("""
     <div style="
-        background: linear-gradient(135deg, #1e2a44 0%, #152036 100%);
-        border: 1px solid #00ff9d;
+        background: linear-gradient(135deg, #1e293b 0%, #0f172a 100%);
+        border: 1px solid #22c55e;
         border-radius: 14px;
-        padding: 22px 24px;
-        margin-bottom: 28px;
-        line-height: 1.6;
-        font-size: 1.05rem;
-    ">
-        <b>Syyskuun palloilupaketti</b> -veikkauskisa koostuu viidestä erillisestä veikkauslistasta, 
-        jotka löytyvät valikosta kohdasta <b>VEIKKAUSKISA</b>.<br><br>
-        Veikattavana on jääkiekkoa Suomesta ja NHL:stä sekä jalkapalloa ympäri Eurooppaa, niin seura- kuin maajoukkuepeleistä. 
-        Jokaisen veikkauslistan kolme parasta saavat bonuspisteitä, jotka lisätään kyseisen listan 
-        kaikkien pelien ratkettua veikkaajan kokonaispistesaldoon.<br><br>
-        Koko kisan voittaja on tietenkin se, joka kerää eniten pisteitä kaikista veikkauslistoista yhteensä.
-        <b>ONNEA VEIKKAUKSIIN!</b>
+        padding: 20px 22px;
+        margin-bottom: 24px;
+        line-height: 1.65;
+        font-size: 1.02rem;
+        color: #e2e8f0;
+    
+        
     </div>
     """, unsafe_allow_html=True)
 
-    # ----- Pistelasku -----
-    st.subheader("Miten veikkauksista saa pisteitä...?")
-    st.write("")
+    st.subheader("Pisteytysjärjestelmä - Listat 1-4")
+    st.caption("SM-Liiga • Valioliiga • Eurofutis • Nations League")
 
-    # Listat 1–4
-    with st.container(border=True):
-        st.markdown("#### Listat 1–4")
-        st.caption("SM-Liiga • Valioliiga • Eurofutis • Nations League")
-        st.markdown("""
-- **10 pistettä** – Täysin oikea veikkaus  
-- **7 pistettä** – Oikea voittaja ➙ Toisen joukkueen maalimäärä oikein ja toisen korkeintaan yhdellä väärin  
-- **6 pistettä** – Oikea voittaja ➙ Toisen joukkueen maalimäärä oikein ja toisen yli yhdellä väärin  
-- **6 pistettä** – Oikein veikattu tasapeli ➙ Maalimäärät väärin  
-- **4 pistettä** – Oikea voittaja ➙ Molempien joukkueiden maalimäärä väärin  
-- **0 pistettä** – Väärä 1X2
-        """)
-        st.markdown("Jokaisessa listassa on yksi kohde, jossa on :red[**tuplapisteet**] 🔥")
+    pcols = st.columns(6)
+    point_cards = [
+        ("10 p", "Täysin oikea veikkaus", "#22c55e"),
+        ("7 p", "Oikea voittaja\n (Toisen joukkueen maalimäärä oikein ja toisen korkeintaan yhdellä väärin)", "#22c55e"),
+        ("6 p", "Oikea voittaja\n (Toisen joukkueen maalimäärä oikein ja toisen yli yhdellä väärin)", "#22c55e"),
+        ("5 p", "Oikea tasapeli\n (Maalimäärät väärin)", "#22c55e"),
+        ("4 p", "Oikea voittaja\n (Molempien joukkueiden maalimäärä väärin)", "#22c55e"),
+        ("0 p", "Väärä 1X2", "#64748b"),
+    ]
+    for col, (pts, desc, color) in zip(pcols, point_cards):
+        with col:
+            st.markdown(f"""
+            <div style="
+                background:#0f172a;
+                border:1px solid {color};
+                border-radius:12px;
+                padding:14px 10px;
+                text-align:center;
+                min-height:110px;
+            ">
+                <div style="font-size:1.35rem; font-weight:700; color:{color};">{pts}</div>
+                <div style="font-size:0.78rem; color:#94a3b8; margin-top:6px; white-space:pre-line;">{desc}</div>
+            </div>
+            """, unsafe_allow_html=True)
 
-    st.write("")
-
-    # NHL
-    with st.container(border=True):
-        st.markdown("#### Lista 5")
-        st.caption("NHL 1X2 + Moniveto")
-        st.markdown("""
-- **8 pistettä** – Täysin oikea veikkaus  
-- **3 pistettä** – Oikea 1X2  
-        """)
-        st.markdown("Myös tässä listassa on yksi ottelu, jossa on :red[**tuplapisteet**] 🔥")
-
-    st.write("")
    
 
-    # ----- Bonuspisteet -----
-    st.subheader("Listakohtaiset bonuspisteet...?")
-    
-    # Kapeampi laatikko
-    col_bonus, _ = st.columns([1.2, 1.5])
-    with col_bonus:
-        b1, b2, b3 = st.columns(3)
-        with b1:
-            st.markdown("### 🥇 +5p")
-            
-        with b2:
-            st.markdown("### 🥈 +3p")
-            
-        with b3:
-            st.markdown("### 🥉 +1p")
-                
+    st.markdown("<div style='height:14px;'></div>", unsafe_allow_html=True)
+    st.subheader("Lista 5")
+    st.caption("NHL 1X2 + Moniveto")
 
-    st.write("")
-    st.write("")
+    n1, n2, n3, n4, n5, n6 = st.columns(6)
+    with n1:
+        st.markdown("""
+        <div style="background:#0f172a;border:1px solid #22c55e;border-radius:12px;padding:14px 12px;text-align:center;">
+            <div style="font-size:1.35rem;font-weight:700;color:#22c55e;">7 p</div>
+            <div style="font-size:0.8rem;color:#94a3b8;margin-top:6px;">Täysin oikea veikkaus</div>
+        </div>
+        """, unsafe_allow_html=True)
+    with n2:
+        st.markdown("""
+        <div style="background:#0f172a;border:1px solid #22c55e;border-radius:12px;padding:14px 12px;text-align:center;">
+            <div style="font-size:1.35rem;font-weight:700;color:#22c55e;">3 p</div>
+            <div style="font-size:0.8rem;color:#94a3b8;margin-top:6px;">Oikea 1X2</div>
+        </div>
+        """, unsafe_allow_html=True)
 
-    # ----- Muuta -----
-    st.subheader("Muuta huomioitavaa...?")
+    st.markdown("<div style='height:8px;'></div>", unsafe_allow_html=True)
     
+
+    st.markdown("<div style='height:18px;'></div>", unsafe_allow_html=True)
+    st.subheader("Listakohtaiset bonuspisteet")
+    b1, b2, b3, b4, b5 = st.columns(5)
+    with b1:
+        st.markdown("### 🥇 +5 p")
+    with b2:
+        st.markdown("### 🥈 +3 p")
+    with b3:
+        st.markdown("### 🥉 +1 p")
+
+    st.markdown("<div style='height:14px;'></div>", unsafe_allow_html=True)
+    st.subheader("Muuta huomioitavaa")
     with st.container(border=True):
         st.markdown("""
-- Veikkaukset lukittuvat ottelun alkaessa  
-- Voit muuttaa veikkaustasi vapaasti niin kauan kuin kohde on auki  
-- Tulokset syötetään manuaalisesti adminin toimesta  
-- Mahdolliset pistekorjaukset tehdään admin-paneelista
+- Veikkauskohteen veikkaaminen ja päivittäminen on mahdollista aina ottelun alkamiseen asti. Tämän jälkeen kohde sulkeutuu ja poistuu veikkauslistalta. Kun kohde on suljettu, voit vertailla kanssakilpailijoiden tekemiä veikkauksia "Kaikkien veikkaukset"-sivulta.   
+- Huomioi monivetoa tehdessäsi, että valitset ensin oman pelistrategiasi. Täppää siis haluatko asettaa kotijoukkueelle neljä maalia ja vierasjoukkueelle yhden (4-1), molemmille kaksi maalia (2-2) vai yhden maalin kotijoukkueelle ja neljä maalia vierasjoukkueelle (1-4).   
+- Jokaisessa listassa on yksi ennalta päätetty ja kaikille sama veikkauskohde, josta jaetaan tuplapisteet. 
+- Tulokset kirjataan manuaalisesti adminin toimesta, saattaa siis välillä olla hieman viivettä. NHL-ottelut kirjataan järjestelmään vasta aamulla adminin herätessä.   
+
         """)
 
 
@@ -1826,13 +2306,7 @@ if page == "Admin":
         horizontal=True
     )
 
-    ALL_MATCH_LISTS = [
-        ("Lista 1 – SM-Liiga", LIIGA_MATCHES),
-        ("Lista 2 – Valioliiga", VALIOLIIGA_MATCHES),
-        ("Lista 3 – Europelien helmiä", EURO_MATCHES),
-        ("Lista 4 – Kansojen liiga", NATIONS_MATCHES),
-        ("Lista 5 – NHL-Tusina", NHL_MATCHES),
-    ]
+    ALL_MATCH_LISTS = ALL_MATCH_LISTS_DATA
 
     if admin_tab == "Käyttäjien hallinta":
         st.write("### 👥 Käyttäjien hallinta")
@@ -1908,7 +2382,7 @@ if page == "Admin":
                                 st.session_state[confirm_key] = False
                                 st.rerun()
 
-                st.divider()
+                st.markdown("---")
 
     elif admin_tab == "Tulosten syöttö":
         st.write("### 📊 Tulosten syöttö")
@@ -1947,7 +2421,7 @@ if page == "Admin":
         with col_f3:
             search = st.text_input("Haku (joukkue)", placeholder="esim. KalPa", key="result_search")
 
-        st.divider()
+        st.markdown("---")
 
         def parse_score(text):
             if not text:
@@ -1998,18 +2472,18 @@ if page == "Admin":
                     double_txt = " 🔥 TUPLAPISTEET" if m["double"] else ""
 
                     if has_result:
-                        status_color = "#00ff9d"
+                        status_color = "#22c55e"
                         status_txt = f"Tallennettu: {real['home_goals']}–{real['away_goals']}"
                     elif is_started:
-                        status_color = "#ff6b6b"
+                        status_color = "#f87171"
                         status_txt = "Peli alkanut – tulos puuttuu!"
                     else:
-                        status_color = "#888888"
+                        status_color = "#64748b"
                         status_txt = "Ei vielä tulosta (peli ei alkanut)"
 
                     st.markdown(
                         f"**{m['home']} – {m['away']}{double_txt}**  \n"
-                        f"<span style='color:#aaaaaa; font-size:0.9rem;'>{m['aika']}</span> · "
+                        f"<span style='color:#94a3b8; font-size:0.9rem;'>{m['aika']}</span> · "
                         f"Veikkauksia: **{pred_count}** · "
                         f"<span style='color:{status_color};'>{status_txt}</span>",
                         unsafe_allow_html=True
@@ -2135,7 +2609,7 @@ if page == "Admin":
                     st.success(f"Korjaus tallennettu: {adj_points:+d} p pelaajalle {selected_user}")
                     st.rerun()
 
-            st.divider()
+            st.markdown("---")
             st.write("#### Korjaushistoria")
             adjustments = get_user_adjustments(selected_user)
             if not adjustments:
@@ -2148,7 +2622,7 @@ if page == "Admin":
                     with dc1:
                         st.markdown(
                             f"**{adj['points']:+d} p** · {reason}  \n"
-                            f"<span style='color:#888; font-size:0.85rem;'>{created} · {adj['created_by'] or 'admin'}</span>",
+                            f"<span style='color:#64748b; font-size:0.85rem;'>{created} · {adj['created_by'] or 'admin'}</span>",
                             unsafe_allow_html=True
                         )
                     with dc2:
@@ -2168,9 +2642,6 @@ if page == "Admin":
     elif admin_tab == "Varmuuskopiointi & palautus":
         st.subheader("💾 Varmuuskopiointi ja palautus")
         st.caption("Varmuuskopio sisältää koko tietokannan (käyttäjät, veikkaukset, tulokset, pistekorjaukset ja keskustelu).")
-
-        import zipfile
-        import io
 
         conn = get_db_connection()
         c = conn.cursor()
@@ -2213,7 +2684,7 @@ if page == "Admin":
             use_container_width=True
         )
 
-        st.divider()
+        st.markdown("---")
 
         st.write("#### Palauta varmuuskopio")
         st.warning("Palautus korvaa nykyiset käyttäjät, veikkaukset, tulokset, pistekorjaukset **ja koko keskustelun**.")
