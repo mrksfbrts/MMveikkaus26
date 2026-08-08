@@ -17,6 +17,31 @@ def render_contest_admin(st, get_db, clear_matches_cache, clear_points_cache):
                 pass
         conn.commit()
 
+    # Normalisoi vanhat asetukset kisatyypin mukaan:
+    # - Tulosveto: vain tuplapisteet
+    # - 1X2: vain tuplamerkit
+    # - Moniveto / NHL: vain jokerit
+    with get_db() as conn:
+        conn.execute("""
+            UPDATE list_settings
+            SET double_marks = 0,
+                joker_count = 0
+            WHERE COALESCE(pred_type, 'normal') = 'normal'
+        """)
+        conn.execute("""
+            UPDATE list_settings
+            SET double_points = 0,
+                joker_count = 0
+            WHERE COALESCE(pred_type, 'normal') = '1x2'
+        """)
+        conn.execute("""
+            UPDATE list_settings
+            SET double_points = 0,
+                double_marks = 0
+            WHERE COALESCE(pred_type, 'normal') IN ('moniveto', 'nhl')
+        """)
+        conn.commit()
+
     with get_db() as conn:
         rows = conn.execute(
             "SELECT list_key, COALESCE(list_name,'') AS list_name, COALESCE(pred_type,'normal') AS pred_type, "
@@ -39,17 +64,16 @@ def render_contest_admin(st, get_db, clear_matches_cache, clear_points_cache):
                 }[x],
             )
 
-            c1, c2, c3 = st.columns(3)
-            with c1:
+            double_points = False
+            double_marks = 0
+            joker_count = 0
+
+            if pred_type == "normal":
                 double_points = st.checkbox("Tuplapisteet käytössä", value=False)
-            with c2:
-                double_marks = st.number_input("Tuplakohteiden määrä", min_value=0, value=0, step=1)
-            with c3:
-                joker_count = 0
-                if pred_type in ("moniveto", "nhl"):
-                    joker_count = st.number_input("Jokereiden määrä", min_value=0, value=0, step=1)
-                else:
-                    st.caption("Jokereita ei käytetä tässä veikkaustyypissä.")
+            elif pred_type == "1x2":
+                double_marks = st.number_input("Tuplamerkkien määrä", min_value=0, value=0, step=1)
+            elif pred_type in ("moniveto", "nhl"):
+                joker_count = st.number_input("Jokereiden määrä", min_value=0, value=0, step=1)
 
             sort_order = st.number_input("Järjestys", min_value=0, value=len(rows) + 1, step=1)
 
@@ -59,10 +83,11 @@ def render_contest_admin(st, get_db, clear_matches_cache, clear_points_cache):
                 if not clean_key or not clean_name:
                     st.error("Anna sekä kisan nimi että tunnus.")
                 else:
-                    # Varmistetaan myös palvelinpuolella, ettei väärä arvo pääse
-                    # tietokantaan, vaikka lomakkeen käyttöliittymä joskus muuttuisi.
+                    # Varmistus palvelinpuolella: vain kisatyypille kuuluva
+                    # tupla-/jokeriasetus pääsee tietokantaan.
+                    safe_double_points = int(double_points) if pred_type == "normal" else 0
+                    safe_double_marks = int(double_marks) if pred_type == "1x2" else 0
                     safe_joker_count = int(joker_count) if pred_type in ("moniveto", "nhl") else 0
-                    safe_double_marks = int(double_marks) if double_points else 0
 
                     with get_db() as conn:
                         exists = conn.execute("SELECT 1 FROM list_settings WHERE list_key=?", (clean_key,)).fetchone()
@@ -71,7 +96,7 @@ def render_contest_admin(st, get_db, clear_matches_cache, clear_points_cache):
                         else:
                             conn.execute(
                                 "INSERT INTO list_settings (list_key,list_name,pred_type,double_points,double_marks,joker_count,sort_order) VALUES (?,?,?,?,?,?,?)",
-                                (clean_key, clean_name, pred_type, int(double_points), safe_double_marks, safe_joker_count, int(sort_order)),
+                                (clean_key, clean_name, pred_type, safe_double_points, safe_double_marks, safe_joker_count, int(sort_order)),
                             )
                             conn.commit()
                             clear_matches_cache()
@@ -91,10 +116,14 @@ def render_contest_admin(st, get_db, clear_matches_cache, clear_points_cache):
                     st.markdown(f"**{row['list_name'] or row['list_key']}**")
                     st.caption(f"Tunnus: `{row['list_key']}` · Tyyppi: {row['pred_type']}")
                 with c2:
-                    st.caption(
-                        f"Tuplapisteet: {'kyllä' if row['double_points'] else 'ei'} · "
-                        f"Tuplakohteita: {row['double_marks']} · Jokereita: {row['joker_count']}"
-                    )
+                    pred_type = row['pred_type'] or 'normal'
+                    if pred_type == 'normal':
+                        settings_txt = f"Tuplapisteet: {'kyllä' if row['double_points'] else 'ei'}"
+                    elif pred_type == '1x2':
+                        settings_txt = f"Tuplamerkkejä: {row['double_marks']}"
+                    else:
+                        settings_txt = f"Jokereita: {row['joker_count']}"
+                    st.caption(settings_txt)
                 with c3:
                     if st.button("Poista", key=f"delete_contest_{row['list_key']}"):
                         with get_db() as conn:
