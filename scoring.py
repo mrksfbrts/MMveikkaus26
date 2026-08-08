@@ -1,4 +1,5 @@
 """Haamuhanska – pisteytys"""
+# Player-selected doubles / 1X2 modes are handled by the UI patch workflow.
 
 
 def get_1x2(home_goals, away_goals):
