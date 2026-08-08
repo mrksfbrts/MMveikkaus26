@@ -11,6 +11,7 @@ import html
 import zipfile
 import io
 import streamlit.components.v1 as components
+from scoring import calculate_match_points
 
 # ====================== PERUSASETUKSET ======================
 HELSINKI = ZoneInfo("Europe/Helsinki")
