@@ -62,6 +62,19 @@ button[kind="primary"]:hover {
 }
 button[kind="primary"]:focus { box-shadow: 0 0 0 2px rgba(22, 163, 74, 0.4) !important; }
 
+/* NHL multiselect – valitut tagit tummalla teemalla */
+span[data-baseweb="tag"] {
+    background-color: #166534 !important;
+    color: #f0fdf4 !important;
+    border: 1px solid #22c55e !important;
+}
+span[data-baseweb="tag"] span {
+    color: #f0fdf4 !important;
+}
+span[data-baseweb="tag"] svg {
+    fill: #f0fdf4 !important;
+}
+
 /* ===== MOBIILIOPTIMOINTI ===== */
 @media (max-width:768px) {
     .etusivu-otsikko { font-size:1.45rem !important; white-space:normal !important; letter-spacing:1px !important; }
@@ -73,6 +86,9 @@ button[kind="primary"]:focus { box-shadow: 0 0 0 2px rgba(22, 163, 74, 0.4) !imp
     .stSelectbox, .stMultiSelect, .stRadio { font-size: 0.9rem !important; }
     button { min-height: 44px !important; }
     .rank-bar-bg { height: 3px; }
+    /* Tiiviimmät veikkauslomakkeet mobiilissa */
+    .stSelectbox > div, .stMultiSelect > div { margin-bottom: 0.3rem !important; }
+    div[data-testid="stVerticalBlockBorderWrapper"] { padding: 0.6rem !important; }
 }
 @media (max-width:480px) {
     .etusivu-otsikko { font-size:1.25rem !important; }
@@ -712,6 +728,8 @@ def get_contest_stats():
     for (user, mid), pred in pred_map.items():
         preds_by_match.setdefault(mid, []).append((user, pred))
 
+    # Täysosumat per käyttäjä
+    perfect_by_user = {u: 0 for u in users}
     perfect_count = 0
     for (user, mid), pred in pred_map.items():
         real = result_map.get(mid)
@@ -722,22 +740,26 @@ def get_contest_stats():
         max_pts = 20 if m.get("double") else 10
         if pts == max_pts:
             perfect_count += 1
+            perfect_by_user[user] = perfect_by_user.get(user, 0) + 1
 
-    double_points = {}
-    for m in all_matches:
-        if not m.get("double"):
-            continue
-        real = result_map.get(m["id"])
-        if not real:
-            continue
-        for user, pred in preds_by_match.get(m["id"], []):
-            pts = calculate_match_points(pred, real, True)
-            double_points[user] = double_points.get(user, 0) + pts
+    # Leader: eniten täysosumia → eniten ranking-pisteitä → aakkoset
+    perfect_leader = None
+    perfect_leader_count = 0
+    if users and any(v > 0 for v in perfect_by_user.values()):
+        def perfect_sort_key(u):
+            return (
+                -perfect_by_user.get(u, 0),
+                -user_stats.get(u, {}).get("total", 0),
+                u.lower()
+            )
+        sorted_users = sorted(users, key=perfect_sort_key)
+        perfect_leader = sorted_users[0]
+        perfect_leader_count = perfect_by_user.get(perfect_leader, 0)
+        if perfect_leader_count == 0:
+            perfect_leader = None
 
-    best_double_user, best_double_pts = None, -1
-    if double_points:
-        best_double_user, best_double_pts = max(double_points.items(), key=lambda x: (x[1], -len(x[0]), x[0]))
-
+    # Helpoin & vaikein – tuplakerroin EI mukana keskiarvossa
+    easiest = None  # (avg, match, n)
     hardest = None
     for m in all_matches:
         real = result_map.get(m["id"])
@@ -746,18 +768,29 @@ def get_contest_stats():
         preds = preds_by_match.get(m["id"], [])
         if not preds:
             continue
-        total_pts = sum(calculate_match_points(pred, real, m.get("double", False)) for _, pred in preds)
+        total_pts = sum(calculate_match_points(pred, real, False) for _, pred in preds)
         avg = total_pts / len(preds)
+        n = len(preds)
+        if easiest is None or avg > easiest[0]:
+            easiest = (avg, m, n)
         if hardest is None or avg < hardest[0]:
-            hardest = (avg, m, len(preds))
+            hardest = (avg, m, n)
+
+    scored_matches = sum(1 for m in all_matches if result_map.get(m["id"]) is not None)
+    total_matches = len(all_matches)
 
     return {
         "perfect_count": perfect_count,
-        "best_double_user": best_double_user,
-        "best_double_pts": best_double_pts if best_double_pts >= 0 else 0,
+        "perfect_leader": perfect_leader,
+        "perfect_leader_count": perfect_leader_count,
+        "easiest_match": easiest[1] if easiest else None,
+        "easiest_avg": round(easiest[0], 1) if easiest else None,
+        "easiest_n": easiest[2] if easiest else None,
         "hardest_match": hardest[1] if hardest else None,
         "hardest_avg": round(hardest[0], 1) if hardest else None,
         "hardest_n": hardest[2] if hardest else None,
+        "scored_matches": scored_matches,
+        "total_matches": total_matches,
     }
 
 def clear_points_cache():
@@ -969,57 +1002,62 @@ if page == "Etusivu":
         next_m = get_next_open_match()
         now = datetime.now(HELSINKI)
 
-        user_preds = load_user_predictions(uname)
-        all_lists, _ = load_all_match_lists()
-        done = total_m = open_m = 0
-        for _, matches in all_lists:
-            for m in matches:
-                total_m += 1
-                if m["id"] in user_preds:
-                    done += 1
-                if now < m["start"]:
-                    open_m += 1
+        stats = get_contest_stats()
+        scored = stats["scored_matches"]
+        total_m = stats["total_matches"]
 
         next_txt = f"{next_m['home']} – {next_m['away']}" if next_m else "Ei avoimia"
         next_time = next_m["aika"] if next_m else "—"
 
+        # Yhtenäinen reunaväri kaikille laatikoille
+        BOX_BORDER = "#22c55e"
+
         c1, c2, c3 = st.columns(3)
         for col, title, value, sub in [
             (c1, "Omat pisteet", pts, f"Sijoitus {rank}/{total}"),
-            (c2, "Tallennetut veikkaukset", f"{done} / {total_m}", f"{open_m} veikkauskohdetta vielä avoinna"),
+            (c2, "Rankingiin lasketut", f"{scored} / {total_m}", "ottelua"),
             (c3, "Seuraava kohde", next_txt, next_time)
         ]:
             with col:
                 st.markdown(f"""
-                <div style="background:linear-gradient(135deg,#1e293b,#0f172a);border:1px solid #22c55e;border-radius:14px;padding:20px 16px;text-align:center;min-height:170px;display:flex;flex-direction:column;justify-content:center;">
+                <div style="background:linear-gradient(135deg,#1e293b,#0f172a);border:1px solid {BOX_BORDER};border-radius:14px;padding:20px 16px;text-align:center;min-height:170px;display:flex;flex-direction:column;justify-content:center;">
                     <div style="font-size:1rem;color:#94a3b8;margin-bottom:8px;">{title}</div>
                     <div style="font-size:1.6rem;font-weight:700;color:#22c55e;line-height:1.2;">{value}</div>
                     <div style="font-size:0.95rem;color:#94a3b8;margin-top:10px;">{sub}</div>
                 </div>""", unsafe_allow_html=True)
 
-        # --- Kisan tilastolaatikot ---
+        # --- Alarivin tilastolaatikot ---
         st.markdown("<div style='height:18px;'></div>", unsafe_allow_html=True)
-        stats = get_contest_stats()
         s1, s2, s3 = st.columns(3)
+
         with s1:
-            st.markdown(f"""
-            <div style="background:linear-gradient(135deg,#1e293b,#0f172a);border:1px solid #334155;border-radius:14px;padding:18px 14px;text-align:center;min-height:140px;display:flex;flex-direction:column;justify-content:center;">
-                <div style="font-size:0.9rem;color:#94a3b8;margin-bottom:6px;">🎯 Täysosumat</div>
-                <div style="font-size:1.7rem;font-weight:700;color:#22c55e;">{stats['perfect_count']}</div>
-                <div style="font-size:0.85rem;color:#64748b;margin-top:6px;">kpl koko kisassa</div>
-            </div>""", unsafe_allow_html=True)
-        with s2:
-            if stats["best_double_user"]:
-                d_val = html.escape(stats["best_double_user"])
-                d_sub = f"{stats['best_double_pts']} p tuplakohteista"
+            if stats["perfect_leader"] and stats["perfect_leader_count"] > 0:
+                p_val = str(stats["perfect_count"])
+                p_sub = f"Eniten: {html.escape(stats['perfect_leader'])} ({stats['perfect_leader_count']})"
             else:
-                d_val, d_sub = "—", "Ei vielä tuplatuloksia"
+                p_val = str(stats["perfect_count"]) if stats["perfect_count"] else "—"
+                p_sub = "kpl koko kisassa" if stats["perfect_count"] else "Ei vielä täysosumia"
             st.markdown(f"""
-            <div style="background:linear-gradient(135deg,#1e293b,#0f172a);border:1px solid #334155;border-radius:14px;padding:18px 14px;text-align:center;min-height:140px;display:flex;flex-direction:column;justify-content:center;">
-                <div style="font-size:0.9rem;color:#94a3b8;margin-bottom:6px;">🔥 Paras tuplaaja</div>
-                <div style="font-size:1.35rem;font-weight:700;color:#22c55e;">{d_val}</div>
-                <div style="font-size:0.85rem;color:#64748b;margin-top:6px;">{d_sub}</div>
+            <div style="background:linear-gradient(135deg,#1e293b,#0f172a);border:1px solid {BOX_BORDER};border-radius:14px;padding:18px 14px;text-align:center;min-height:140px;display:flex;flex-direction:column;justify-content:center;">
+                <div style="font-size:0.9rem;color:#94a3b8;margin-bottom:6px;">🎯 Täysosumat</div>
+                <div style="font-size:1.7rem;font-weight:700;color:#22c55e;">{p_val}</div>
+                <div style="font-size:0.85rem;color:#64748b;margin-top:6px;">{p_sub}</div>
             </div>""", unsafe_allow_html=True)
+
+        with s2:
+            if stats["easiest_match"]:
+                em = stats["easiest_match"]
+                e_val = f"{em['home']} – {em['away']}"
+                e_sub = f"{stats['easiest_avg']} p / veikkaaja"
+            else:
+                e_val, e_sub = "—", "Ei vielä tuloksia"
+            st.markdown(f"""
+            <div style="background:linear-gradient(135deg,#1e293b,#0f172a);border:1px solid {BOX_BORDER};border-radius:14px;padding:18px 14px;text-align:center;min-height:140px;display:flex;flex-direction:column;justify-content:center;">
+                <div style="font-size:0.9rem;color:#94a3b8;margin-bottom:6px;">🍀 Helpoin kohde</div>
+                <div style="font-size:1.15rem;font-weight:700;color:#22c55e;line-height:1.25;">{html.escape(e_val)}</div>
+                <div style="font-size:0.85rem;color:#64748b;margin-top:6px;">{e_sub}</div>
+            </div>""", unsafe_allow_html=True)
+
         with s3:
             if stats["hardest_match"]:
                 hm = stats["hardest_match"]
@@ -1028,7 +1066,7 @@ if page == "Etusivu":
             else:
                 h_val, h_sub = "—", "Ei vielä tuloksia"
             st.markdown(f"""
-            <div style="background:linear-gradient(135deg,#1e293b,#0f172a);border:1px solid #334155;border-radius:14px;padding:18px 14px;text-align:center;min-height:140px;display:flex;flex-direction:column;justify-content:center;">
+            <div style="background:linear-gradient(135deg,#1e293b,#0f172a);border:1px solid {BOX_BORDER};border-radius:14px;padding:18px 14px;text-align:center;min-height:140px;display:flex;flex-direction:column;justify-content:center;">
                 <div style="font-size:0.9rem;color:#94a3b8;margin-bottom:6px;">💀 Vaikein kohde</div>
                 <div style="font-size:1.15rem;font-weight:700;color:#f87171;line-height:1.25;">{html.escape(h_val)}</div>
                 <div style="font-size:0.85rem;color:#64748b;margin-top:6px;">{h_sub}</div>
@@ -1129,143 +1167,192 @@ if page == "VEIKKAUSKISA":
 
         def render_normal_match(m, prefix):
             now = datetime.now(HELSINKI)
-            if now >= m["start"]:
-                return
+            is_closed = now >= m["start"]
             saved = load_prediction(st.session_state.logged_in_user, m["id"])
             has = saved and "home_goals" in saved
             dbl = '<span style="background:linear-gradient(135deg,#f97316,#ef4444);color:white;font-size:0.7rem;font-weight:700;padding:3px 10px;border-radius:999px;margin-left:8px;">🔥 TUPLAPISTEET</span>' if m["double"] else ""
+
+            title_color = "#94a3b8" if is_closed else "#f1f5f9"
+            closed_badge = ' <span style="background:#334155;color:#f87171;font-size:0.7rem;font-weight:700;padding:3px 10px;border-radius:999px;margin-left:8px;">🔒 SULJETTU</span>' if is_closed else ""
+
             st.markdown(
-                f'<div style="margin-bottom:4px;"><span style="font-size:1.25rem;font-weight:700;color:#f1f5f9;">{m["home"]} – {m["away"]}</span>{dbl}</div>'
+                f'<div style="margin-bottom:4px;"><span style="font-size:1.25rem;font-weight:700;color:{title_color};">{m["home"]} – {m["away"]}</span>{dbl}{closed_badge}</div>'
                 f'<div style="font-size:0.88rem;color:#94a3b8;margin-bottom:2px;">{m["aika"]}</div>',
                 unsafe_allow_html=True
             )
-            render_countdown(m["id"], m["start"])
+
+            if not is_closed:
+                render_countdown(m["id"], m["start"])
+
             with st.container(border=True):
-                left, right = st.columns([1.5, 1])
-                with left:
-                    c1, c2 = st.columns(2)
-                    with c1:
-                        h = st.selectbox(f"**{m['home']}**", range(13), index=saved["home_goals"] if has else 0, key=f"{prefix}_{m['id']}_h")
-                    with c2:
-                        a = st.selectbox(f"**{m['away']}**", range(13), index=saved["away_goals"] if has else 0, key=f"{prefix}_{m['id']}_a")
-                    if st.button("Päivitä veikkaus" if has else "Tallenna veikkaus", type="secondary" if has else "primary", key=f"{prefix}_save_{m['id']}", use_container_width=True):
-                        save_prediction(st.session_state.logged_in_user, m["id"], {"home_goals": h, "away_goals": a})
-                        clear_points_cache()
-                        st.toast("Veikkaus tallennettu!")
-                        st.success("Veikkaus tallennettu!")
-                        st.rerun()
-                with right:
+                if is_closed:
+                    # Lukittu näkymä – näytä vain oma veikkaus
                     if has:
                         st.markdown(
-                            f'<div style="background:linear-gradient(145deg,#1e293b,#0f172a);border:1px solid #22c55e;border-radius:12px;padding:14px 12px;text-align:center;">'
-                            f'<div style="font-size:0.72rem;color:#94a3b8;">TALLENNETTU</div>'
-                            f'<div style="font-size:1.55rem;font-weight:700;color:#f1f5f9;">{saved["home_goals"]} – {saved["away_goals"]}</div></div>',
+                            f'<div style="background:linear-gradient(145deg,#1e293b,#0f172a);border:1px solid #334155;border-radius:12px;padding:14px 12px;text-align:center;">'
+                            f'<div style="font-size:0.72rem;color:#94a3b8;">TALLENNETTU VEIKKAUS</div>'
+                            f'<div style="font-size:1.55rem;font-weight:700;color:#94a3b8;">{saved["home_goals"]} – {saved["away_goals"]}</div></div>',
                             unsafe_allow_html=True
                         )
                     else:
                         st.markdown(
-                            '<div style="background:#0f172a;border:1px dashed #334155;border-radius:12px;padding:18px 12px;text-align:center;color:#64748b;font-size:0.85rem;">Ei vielä<br>tallennettua veikkausta</div>',
+                            '<div style="background:#0f172a;border:1px dashed #334155;border-radius:12px;padding:18px 12px;text-align:center;color:#64748b;font-size:0.85rem;">Ei veikkausta</div>',
                             unsafe_allow_html=True
                         )
+                else:
+                    left, right = st.columns([1.5, 1])
+                    with left:
+                        c1, c2 = st.columns(2)
+                        with c1:
+                            h = st.selectbox(f"**{m['home']}**", range(13), index=saved["home_goals"] if has else 0, key=f"{prefix}_{m['id']}_h")
+                        with c2:
+                            a = st.selectbox(f"**{m['away']}**", range(13), index=saved["away_goals"] if has else 0, key=f"{prefix}_{m['id']}_a")
+                        if st.button("Päivitä veikkaus" if has else "Tallenna veikkaus", type="secondary" if has else "primary", key=f"{prefix}_save_{m['id']}", use_container_width=True):
+                            save_prediction(st.session_state.logged_in_user, m["id"], {"home_goals": h, "away_goals": a})
+                            clear_points_cache()
+                            st.toast("Veikkaus tallennettu!")
+                            st.rerun()
+                    with right:
+                        if has:
+                            st.markdown(
+                                f'<div style="background:linear-gradient(145deg,#1e293b,#0f172a);border:1px solid #22c55e;border-radius:12px;padding:14px 12px;text-align:center;">'
+                                f'<div style="font-size:0.72rem;color:#94a3b8;">TALLENNETTU</div>'
+                                f'<div style="font-size:1.55rem;font-weight:700;color:#f1f5f9;">{saved["home_goals"]} – {saved["away_goals"]}</div></div>',
+                                unsafe_allow_html=True
+                            )
+                        else:
+                            st.markdown(
+                                '<div style="background:#0f172a;border:1px dashed #334155;border-radius:12px;padding:18px 12px;text-align:center;color:#64748b;font-size:0.85rem;">Ei vielä<br>tallennettua veikkausta</div>',
+                                unsafe_allow_html=True
+                            )
             st.markdown("<div style='height:12px;'></div>", unsafe_allow_html=True)
 
         def render_nhl_match(m):
             now = datetime.now(HELSINKI)
-            if now >= m["start"]:
-                return
+            is_closed = now >= m["start"]
             saved = load_prediction(st.session_state.logged_in_user, m["id"])
             has = saved and "mark" in saved
             dbl = '<span style="background:linear-gradient(135deg,#f97316,#ef4444);color:white;font-size:0.7rem;font-weight:700;padding:3px 10px;border-radius:999px;margin-left:8px;">🔥 TUPLAPISTEET</span>' if m["double"] else ""
+
+            title_color = "#94a3b8" if is_closed else "#f1f5f9"
+            closed_badge = ' <span style="background:#334155;color:#f87171;font-size:0.7rem;font-weight:700;padding:3px 10px;border-radius:999px;margin-left:8px;">🔒 SULJETTU</span>' if is_closed else ""
+
             st.markdown(
-                f'<div style="margin-bottom:4px;"><span style="font-size:1.25rem;font-weight:700;color:#f1f5f9;">{m["home"]} – {m["away"]}</span>{dbl}</div>'
+                f'<div style="margin-bottom:4px;"><span style="font-size:1.25rem;font-weight:700;color:{title_color};">{m["home"]} – {m["away"]}</span>{dbl}{closed_badge}</div>'
                 f'<div style="font-size:0.88rem;color:#94a3b8;margin-bottom:2px;">{m["aika"]}</div>',
                 unsafe_allow_html=True
             )
-            render_countdown(m["id"], m["start"])
+
+            if not is_closed:
+                render_countdown(m["id"], m["start"])
+
             with st.container(border=True):
-                left, right = st.columns([1.4, 1])
-                with left:
-                    st.markdown("##### 1X2")
-                    mark = st.radio(
-                        "1X2", ["1", "X", "2"],
-                        index=["1", "X", "2"].index(saved.get("mark", "X") if saved else "X"),
-                        horizontal=True, key=f"nhl_mark_{m['id']}", label_visibility="collapsed"
-                    )
-                    st.markdown("##### Moniveto")
-                    split = st.radio(
-                        "Jakotapa", ["4-1", "2-2", "1-4"],
-                        index=["4-1", "2-2", "1-4"].index(saved.get("split", "2-2") if saved else "2-2"),
-                        horizontal=True, key=f"nhl_split_{m['id']}", label_visibility="collapsed"
-                    )
-                    hc, ac = int(split[0]), int(split[-1])
-                    home_key = f"nhl_home_{m['id']}"
-                    away_key = f"nhl_away_{m['id']}"
-
-                    if home_key not in st.session_state:
-                        st.session_state[home_key] = (saved.get("home_opts", []) if saved else [])[:hc]
-                    if away_key not in st.session_state:
-                        st.session_state[away_key] = (saved.get("away_opts", []) if saved else [])[:ac]
-
-                    if len(st.session_state.get(home_key, [])) > hc:
-                        st.session_state[home_key] = st.session_state[home_key][:hc]
-                    if len(st.session_state.get(away_key, [])) > ac:
-                        st.session_state[away_key] = st.session_state[away_key][:ac]
-
-                    c1, c2 = st.columns(2)
-                    with c1:
-                        try:
-                            home_opts = st.multiselect(
-                                f"**{m['home']}** ({hc} kpl)", list(range(13)),
-                                key=home_key, max_selections=hc
-                            )
-                        except TypeError:
-                            home_opts = st.multiselect(
-                                f"**{m['home']}** ({hc} kpl)", list(range(13)), key=home_key
-                            )
-                    with c2:
-                        try:
-                            away_opts = st.multiselect(
-                                f"**{m['away']}** ({ac} kpl)", list(range(13)),
-                                key=away_key, max_selections=ac
-                            )
-                        except TypeError:
-                            away_opts = st.multiselect(
-                                f"**{m['away']}** ({ac} kpl)", list(range(13)), key=away_key
-                            )
-
-                    if st.button("Päivitä veikkaus" if has else "Tallenna veikkaus",
-                                 type="secondary" if has else "primary",
-                                 key=f"nhl_save_{m['id']}", use_container_width=True):
-                        if len(home_opts) != hc or len(away_opts) != ac:
-                            st.error(f"Valitse tasan **{hc}** kotimaalia ja **{ac}** vierasmaalia")
-                        else:
-                            save_prediction(
-                                st.session_state.logged_in_user, m["id"],
-                                {"mark": mark, "split": split,
-                                 "home_opts": sorted(set(home_opts)),
-                                 "away_opts": sorted(set(away_opts))}
-                            )
-                            clear_points_cache()
-                            st.toast("Veikkaus tallennettu!")
-                            st.success("Veikkaus tallennettu!")
-                            st.rerun()
-                with right:
+                if is_closed:
                     if has:
                         combos = ", ".join(f"{h}–{a}" for h in saved.get("home_opts", []) for a in saved.get("away_opts", [])) or "–"
                         st.markdown(
-                            f'<div style="background:linear-gradient(145deg,#1e293b,#0f172a);border:1px solid #22c55e;border-radius:12px;padding:14px 12px;text-align:center;">'
-                            f'<div style="font-size:0.72rem;color:#94a3b8;margin-bottom:8px;">TALLENNETTU</div>'
+                            f'<div style="background:linear-gradient(145deg,#1e293b,#0f172a);border:1px solid #334155;border-radius:12px;padding:14px 12px;text-align:center;">'
+                            f'<div style="font-size:0.72rem;color:#94a3b8;margin-bottom:8px;">TALLENNETTU VEIKKAUS</div>'
                             f'<div style="margin-bottom:8px;"><div style="font-size:0.72rem;color:#94a3b8;">1X2</div>'
-                            f'<div style="font-size:1.35rem;font-weight:700;color:#f1f5f9;">{saved.get("mark", "-")}</div></div>'
+                            f'<div style="font-size:1.35rem;font-weight:700;color:#94a3b8;">{saved.get("mark", "-")}</div></div>'
                             f'<div><div style="font-size:0.72rem;color:#94a3b8;">Moniveto ({saved.get("split", "-")})</div>'
-                            f'<div style="font-size:0.9rem;color:#22c55e;margin-top:2px;">{combos}</div></div></div>',
+                            f'<div style="font-size:0.9rem;color:#64748b;margin-top:2px;">{combos}</div></div></div>',
                             unsafe_allow_html=True
                         )
                     else:
                         st.markdown(
-                            '<div style="background:#0f172a;border:1px dashed #334155;border-radius:12px;padding:18px 12px;text-align:center;color:#64748b;font-size:0.85rem;">Ei vielä<br>tallennettua veikkausta</div>',
+                            '<div style="background:#0f172a;border:1px dashed #334155;border-radius:12px;padding:18px 12px;text-align:center;color:#64748b;font-size:0.85rem;">Ei veikkausta</div>',
                             unsafe_allow_html=True
                         )
+                else:
+                    left, right = st.columns([1.4, 1])
+                    with left:
+                        st.markdown("##### 1X2")
+                        mark = st.radio(
+                            "1X2", ["1", "X", "2"],
+                            index=["1", "X", "2"].index(saved.get("mark", "X") if saved else "X"),
+                            horizontal=True, key=f"nhl_mark_{m['id']}", label_visibility="collapsed"
+                        )
+                        st.markdown("##### Moniveto")
+                        split = st.radio(
+                            "Jakotapa", ["4-1", "2-2", "1-4"],
+                            index=["4-1", "2-2", "1-4"].index(saved.get("split", "2-2") if saved else "2-2"),
+                            horizontal=True, key=f"nhl_split_{m['id']}", label_visibility="collapsed"
+                        )
+                        hc, ac = int(split[0]), int(split[-1])
+                        home_key = f"nhl_home_{m['id']}"
+                        away_key = f"nhl_away_{m['id']}"
+
+                        split_key = f"nhl_last_split_{m['id']}"
+                        if st.session_state.get(split_key) != split:
+                            st.session_state[home_key] = (saved.get("home_opts", []) if saved else [])[:hc]
+                            st.session_state[away_key] = (saved.get("away_opts", []) if saved else [])[:ac]
+                            st.session_state[split_key] = split
+
+                        if home_key not in st.session_state:
+                            st.session_state[home_key] = (saved.get("home_opts", []) if saved else [])[:hc]
+                        if away_key not in st.session_state:
+                            st.session_state[away_key] = (saved.get("away_opts", []) if saved else [])[:ac]
+
+                        if len(st.session_state.get(home_key, [])) > hc:
+                            st.session_state[home_key] = st.session_state[home_key][:hc]
+                        if len(st.session_state.get(away_key, [])) > ac:
+                            st.session_state[away_key] = st.session_state[away_key][:ac]
+
+                        c1, c2 = st.columns(2)
+                        with c1:
+                            try:
+                                home_opts = st.multiselect(
+                                    f"**{m['home']}** ({hc} kpl)", list(range(13)),
+                                    key=home_key, max_selections=hc
+                                )
+                            except TypeError:
+                                home_opts = st.multiselect(
+                                    f"**{m['home']}** ({hc} kpl)", list(range(13)), key=home_key
+                                )
+                        with c2:
+                            try:
+                                away_opts = st.multiselect(
+                                    f"**{m['away']}** ({ac} kpl)", list(range(13)),
+                                    key=away_key, max_selections=ac
+                                )
+                            except TypeError:
+                                away_opts = st.multiselect(
+                                    f"**{m['away']}** ({ac} kpl)", list(range(13)), key=away_key
+                                )
+
+                        if st.button("Päivitä veikkaus" if has else "Tallenna veikkaus",
+                                     type="secondary" if has else "primary",
+                                     key=f"nhl_save_{m['id']}", use_container_width=True):
+                            if len(home_opts) != hc or len(away_opts) != ac:
+                                st.error(f"Valitse tasan **{hc}** kotimaalia ja **{ac}** vierasmaalia")
+                            else:
+                                save_prediction(
+                                    st.session_state.logged_in_user, m["id"],
+                                    {"mark": mark, "split": split,
+                                     "home_opts": sorted(set(home_opts)),
+                                     "away_opts": sorted(set(away_opts))}
+                                )
+                                clear_points_cache()
+                                st.toast("Veikkaus tallennettu!")
+                                st.rerun()
+                    with right:
+                        if has:
+                            combos = ", ".join(f"{h}–{a}" for h in saved.get("home_opts", []) for a in saved.get("away_opts", [])) or "–"
+                            st.markdown(
+                                f'<div style="background:linear-gradient(145deg,#1e293b,#0f172a);border:1px solid #22c55e;border-radius:12px;padding:14px 12px;text-align:center;">'
+                                f'<div style="font-size:0.72rem;color:#94a3b8;margin-bottom:8px;">TALLENNETTU</div>'
+                                f'<div style="margin-bottom:8px;"><div style="font-size:0.72rem;color:#94a3b8;">1X2</div>'
+                                f'<div style="font-size:1.35rem;font-weight:700;color:#f1f5f9;">{saved.get("mark", "-")}</div></div>'
+                                f'<div><div style="font-size:0.72rem;color:#94a3b8;">Moniveto ({saved.get("split", "-")})</div>'
+                                f'<div style="font-size:0.9rem;color:#22c55e;margin-top:2px;">{combos}</div></div></div>',
+                                unsafe_allow_html=True
+                            )
+                        else:
+                            st.markdown(
+                                '<div style="background:#0f172a;border:1px dashed #334155;border-radius:12px;padding:18px 12px;text-align:center;color:#64748b;font-size:0.85rem;">Ei vielä<br>tallennettua veikkausta</div>',
+                                unsafe_allow_html=True
+                            )
             st.markdown("<div style='height:12px;'></div>", unsafe_allow_html=True)
 
         for ti, (name, matches) in enumerate(all_lists):
