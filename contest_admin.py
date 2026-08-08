@@ -50,19 +50,23 @@ def render_contest_admin(st, get_db, clear_matches_cache, clear_points_cache):
         ).fetchall()
 
     with st.expander("➕ Luo uusi kisa", expanded=True):
+        # Kisatyyppi pidetään lomakkeen ulkopuolella, jotta Streamlit päivittää
+        # tyypin vaihtuessa heti oikean asetuskentän näkyviin.
+        pred_type = st.selectbox(
+            "Veikkaustyyppi",
+            ["normal", "1x2", "moniveto", "nhl"],
+            format_func=lambda x: {
+                "normal": "Tulosveto",
+                "1x2": "1X2",
+                "moniveto": "Moniveto",
+                "nhl": "NHL 1X2 + Moniveto",
+            }[x],
+            key="new_contest_pred_type",
+        )
+
         with st.form("create_contest_form", clear_on_submit=True):
             name = st.text_input("Kisan nimi", placeholder="esim. Lauantain NHL-moniveto")
             key = st.text_input("Kisan tunnus", placeholder="esim. nhl_la")
-            pred_type = st.selectbox(
-                "Veikkaustyyppi",
-                ["normal", "1x2", "moniveto", "nhl"],
-                format_func=lambda x: {
-                    "normal": "Tulosveto",
-                    "1x2": "1X2",
-                    "moniveto": "Moniveto",
-                    "nhl": "NHL 1X2 + Moniveto",
-                }[x],
-            )
 
             double_points = False
             double_marks = 0
