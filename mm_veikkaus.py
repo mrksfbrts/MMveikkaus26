@@ -491,37 +491,7 @@ def delete_all_comments():
         conn.execute("DELETE FROM comment_reactions")
         conn.execute("DELETE FROM comments")
 
-def get_1x2(h, a):
-    return "1" if h > a else "2" if h < a else "X"
 
-def calculate_match_points(pred, real, double=False):
-    if not pred or not real:
-        return 0
-    if "mark" in pred:
-        rh, ra = real.get("home_goals"), real.get("away_goals")
-        if rh is None or ra is None:
-            return 0
-        pts = 7 if rh in pred.get("home_opts", []) and ra in pred.get("away_opts", []) else 0
-        if pred.get("mark") == get_1x2(rh, ra):
-            pts += 3
-        return pts * 2 if double else pts
-    ph, pa = pred.get("home_goals"), pred.get("away_goals")
-    rh, ra = real.get("home_goals"), real.get("away_goals")
-    if None in (ph, pa, rh, ra):
-        return 0
-    if get_1x2(ph, pa) != get_1x2(rh, ra):
-        return 0
-    if ph == rh and pa == ra:
-        pts = 10
-    elif (ph == rh and abs(pa - ra) == 1) or (pa == ra and abs(ph - rh) == 1):
-        pts = 7
-    elif ph == rh or pa == ra:
-        pts = 6
-    elif get_1x2(ph, pa) == "X":
-        pts = 5
-    else:
-        pts = 4
-    return pts * 2 if double else pts
 
 def page_header(title, subtitle=None):
     sub = f"<p>{subtitle}</p>" if subtitle else ""
