@@ -7,7 +7,12 @@ def get_1x2(home_goals, away_goals):
 
 
 def calculate_match_points(pred, real, double=False):
-    """Laskee yhden kohteen pisteet eri veikkaustyypeille."""
+    """Laskee yhden kohteen pisteet eri veikkaustyypeille.
+
+    Tuplapisteet kuuluvat nykyisessä mallissa pelaajan omaan veikkaukseen:
+    pred["double"] = True. Vanha double-parametri säilytetään taaksepäin
+    yhteensopivuutta varten vanhoille veikkauksille, joissa kenttää ei ole.
+    """
     if not pred or not real:
         return 0
 
@@ -15,7 +20,12 @@ def calculate_match_points(pred, real, double=False):
     if rh is None or ra is None:
         return 0
 
-    # Erillinen 1X2: yksi tai kaksi merkkiä.
+    # Pelaajan oma tuplavalinta. Jos vanhassa veikkauksessa kenttää ei ole,
+    # käytetään kutsujan välittämää arvoa yhteensopivuuden vuoksi.
+    player_double = bool(pred.get("double", double))
+
+    # Erillinen 1X2: yksi tai kaksi merkkiä. Tuplamerkki tarkoittaa kahta
+    # mahdollista 1X2-tulosta, ei pisteiden kaksinkertaistamista.
     if pred.get("kind") == "1x2" or "mark_opts" in pred:
         actual = get_1x2(rh, ra)
         opts = pred.get("mark_opts", [])
@@ -23,14 +33,15 @@ def calculate_match_points(pred, real, double=False):
 
     # Erillinen moniveto: vain täsmälleen oikea tulos.
     if pred.get("kind") == "moniveto":
-        return 5 if rh in pred.get("home_opts", []) and ra in pred.get("away_opts", []) else 0
+        pts = 5 if rh in pred.get("home_opts", []) and ra in pred.get("away_opts", []) else 0
+        return pts * 2 if player_double else pts
 
     # Vanha NHL-tyyppi: 1X2 + moniveto samassa kohteessa.
     if "mark" in pred:
         pts = 7 if rh in pred.get("home_opts", []) and ra in pred.get("away_opts", []) else 0
         if pred.get("mark") == get_1x2(rh, ra):
             pts += 3
-        return pts * 2 if double else pts
+        return pts * 2 if player_double else pts
 
     # Normaali tarkka tulosveikkaus.
     ph, pa = pred.get("home_goals"), pred.get("away_goals")
@@ -48,4 +59,4 @@ def calculate_match_points(pred, real, double=False):
         pts = 5
     else:
         pts = 4
-    return pts * 2 if double else pts
+    return pts * 2 if player_double else pts
