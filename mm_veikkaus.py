@@ -175,6 +175,17 @@ def init_db():
         except Exception:
             pass
 
+
+    for col, definition in [
+        ("list_name", "TEXT DEFAULT ''"),
+        ("pred_type", "TEXT DEFAULT 'normal'"),
+        ("sort_order", "INTEGER DEFAULT 0"),
+    ]:
+        try:
+            c.execute(f"ALTER TABLE list_settings ADD COLUMN {col} {definition}")
+        except Exception:
+            pass
+
     try:
         c.execute("ALTER TABLE comments ADD COLUMN parent_id INTEGER DEFAULT NULL")
     except Exception:
