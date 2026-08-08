@@ -157,6 +157,12 @@ def init_db():
         sort_order INTEGER DEFAULT 0,
         pred_type TEXT DEFAULT 'normal'
     )''')
+    c.execute('''CREATE TABLE IF NOT EXISTS list_settings (
+    list_key TEXT PRIMARY KEY,
+    double_points INTEGER DEFAULT 0,
+    double_marks INTEGER DEFAULT 0,
+    joker_count INTEGER DEFAULT 0
+)''')
 
     try:
         c.execute("ALTER TABLE comments ADD COLUMN parent_id INTEGER DEFAULT NULL")
