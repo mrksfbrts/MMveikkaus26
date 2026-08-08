@@ -12,6 +12,7 @@ import zipfile
 import io
 import streamlit.components.v1 as components
 from scoring import calculate_match_points
+from contest_admin import render_contest_admin
 
 # ====================== PERUSASETUKSET ======================
 HELSINKI = ZoneInfo("Europe/Helsinki")
@@ -164,6 +165,16 @@ def init_db():
     joker_count INTEGER DEFAULT 0
 )''')
 
+    for col, definition in [
+        ("list_name", "TEXT DEFAULT ''"),
+        ("pred_type", "TEXT DEFAULT 'normal'"),
+        ("sort_order", "INTEGER DEFAULT 0"),
+    ]:
+        try:
+            c.execute(f"ALTER TABLE list_settings ADD COLUMN {col} {definition}")
+        except Exception:
+            pass
+
     try:
         c.execute("ALTER TABLE comments ADD COLUMN parent_id INTEGER DEFAULT NULL")
     except Exception:
@@ -296,28 +307,29 @@ seed_matches_if_empty()
 
 @st.cache_data(ttl=30)
 def load_all_match_lists():
-    """Palauttaa [(list_name, matches_list), ...] ja list_key-järjestyksen."""
+    """Load both legacy match lists and newly created empty contests."""
     with get_db() as conn:
-        rows = conn.execute(
-            "SELECT * FROM matches ORDER BY sort_order, id"
+        settings = conn.execute(
+            "SELECT list_key, COALESCE(list_name,'') AS list_name, COALESCE(pred_type,'normal') AS pred_type, COALESCE(sort_order,0) AS sort_order FROM list_settings ORDER BY sort_order, list_key"
         ).fetchall()
+        rows = conn.execute("SELECT * FROM matches ORDER BY sort_order, id").fetchall()
+
     lists = {}
     order_keys = []
+    for s in settings:
+        key = s["list_key"]
+        lists[key] = {"name": s["list_name"] or key, "pred_type": s["pred_type"] or "normal", "matches": []}
+        order_keys.append(key)
+
     for r in rows:
         key = r["list_key"]
         if key not in lists:
             lists[key] = {"name": r["list_name"], "pred_type": r["pred_type"], "matches": []}
             order_keys.append(key)
-        start = datetime.fromisoformat(r["start_iso"]).replace(tzinfo=HELSINKI)
+        start_dt = datetime.fromisoformat(r["start_iso"]).replace(tzinfo=HELSINKI)
         lists[key]["matches"].append({
-            "id": r["id"],
-            "home": r["home"],
-            "away": r["away"],
-            "aika": r["aika"],
-            "start": start,
-            "double": bool(r["is_double"]),
-            "pred_type": r["pred_type"],
-            "list_key": key,
+            "id": r["id"], "home": r["home"], "away": r["away"], "aika": r["aika"],
+            "start": start_dt, "double": bool(r["is_double"]), "pred_type": r["pred_type"], "list_key": key,
         })
     return [(lists[k]["name"], lists[k]["matches"]) for k in order_keys], lists
 
@@ -1728,7 +1740,7 @@ if page == "Admin":
     admin_tab = st.radio(
         "Valitse toiminto",
         ["Käyttäjien hallinta", "Tulosten syöttö", "Pistekorjaukset", "Listabonukset",
-         "Otteluiden hallinta", "Varmuuskopiointi & palautus", "Keskustelu"],
+         "Kisojen hallinta", "Otteluiden hallinta", "Varmuuskopiointi & palautus", "Keskustelu"],
         horizontal=True
     )
 
@@ -2039,6 +2051,9 @@ if page == "Admin":
                         st.rerun()
                     else:
                         st.warning("Valitse vähintään yksi pelaaja.")
+
+    elif admin_tab == "Kisojen hallinta":
+        render_contest_admin(st, get_db, clear_matches_cache, clear_points_cache)
 
     elif admin_tab == "Otteluiden hallinta":
         st.write("### 📅 Otteluiden hallinta")
