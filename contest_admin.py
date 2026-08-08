@@ -18,7 +18,7 @@ def render_contest_admin(st, get_db, clear_matches_cache, clear_points_cache):
         conn.commit()
 
     # Normalisoi vanhat asetukset kisatyypin mukaan:
-    # - Tulosveto: vain tuplapisteet
+    # - Tulosveto: vain tuplapistekohteet
     # - 1X2: vain tuplamerkit
     # - Moniveto / NHL: vain jokerit
     with get_db() as conn:
@@ -68,16 +68,37 @@ def render_contest_admin(st, get_db, clear_matches_cache, clear_points_cache):
             name = st.text_input("Kisan nimi", placeholder="esim. Lauantain NHL-moniveto")
             key = st.text_input("Kisan tunnus", placeholder="esim. nhl_la")
 
-            double_points = False
+            # Vain valitulle kisatyypille kuuluva asetus näytetään.
+            # Tulosvedossa määritetään tuplapistekohteiden lukumäärä,
+            # 1X2:ssa tuplamerkkien lukumäärä ja monivedoissa jokerien määrä.
+            double_points = 0
             double_marks = 0
             joker_count = 0
 
             if pred_type == "normal":
-                double_points = st.checkbox("Tuplapisteet käytössä", value=False)
+                double_points = st.number_input(
+                    "Tuplapistekohteiden määrä",
+                    min_value=0,
+                    value=0,
+                    step=1,
+                    help="Kuinka monessa Tulosvedon kohteessa pisteet tuplataan.",
+                )
             elif pred_type == "1x2":
-                double_marks = st.number_input("Tuplamerkkien määrä", min_value=0, value=0, step=1)
+                double_marks = st.number_input(
+                    "Tuplamerkkien määrä",
+                    min_value=0,
+                    value=0,
+                    step=1,
+                    help="Kuinka monta 1X2-kohdetta saa pelata tuplamerkillä.",
+                )
             elif pred_type in ("moniveto", "nhl"):
-                joker_count = st.number_input("Jokereiden määrä", min_value=0, value=0, step=1)
+                joker_count = st.number_input(
+                    "Jokereiden määrä",
+                    min_value=0,
+                    value=0,
+                    step=1,
+                    help="Kuinka monta jokeria kisassa on käytettävissä.",
+                )
 
             sort_order = st.number_input("Järjestys", min_value=0, value=len(rows) + 1, step=1)
 
@@ -122,7 +143,7 @@ def render_contest_admin(st, get_db, clear_matches_cache, clear_points_cache):
                 with c2:
                     pred_type = row['pred_type'] or 'normal'
                     if pred_type == 'normal':
-                        settings_txt = f"Tuplapisteet: {'kyllä' if row['double_points'] else 'ei'}"
+                        settings_txt = f"Tuplapistekohteita: {row['double_points']}"
                     elif pred_type == '1x2':
                         settings_txt = f"Tuplamerkkejä: {row['double_marks']}"
                     else:
