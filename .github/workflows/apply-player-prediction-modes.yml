@@ -1,0 +1,106 @@
+name: Apply player prediction modes
+
+on:
+  push:
+    branches: [Kehitys]
+    paths:
+      - 'mm_veikkaus.py'
+      - 'scoring.py'
+      - 'contest_admin.py'
+      - '.github/workflows/apply-player-prediction-modes.yml'
+
+permissions:
+  contents: write
+
+jobs:
+  patch:
+    if: ${{ !contains(github.event.head_commit.message, '[auto-player-modes]') }}
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout Kehitys
+        uses: actions/checkout@v6
+        with:
+          ref: Kehitys
+          fetch-depth: 0
+
+      - name: Patch application
+        run: |
+          python - <<'PY'
+          from pathlib import Path
+          import re
+
+          path = Path('mm_veikkaus.py')
+          text = path.read_text(encoding='utf-8')
+
+          # 1) Kisan asetuksista tuleva pred_type määrää näkymän. Älä enää
+          #    anna yksittäisen ottelurivin vanhan pred_type-arvon yliajaa sitä.
+          old = '"double": bool(r["is_double"]), "pred_type": r["pred_type"], "list_key": key,'
+          new = '"double": False, "pred_type": lists[key]["pred_type"], "list_key": key,'
+          if old in text:
+              text = text.replace(old, new, 1)
+
+          # 2) Helper listakohtaisille pelaajatuplille.
+          marker = '        def render_normal_match(m, prefix):\n'
+          helper = '''        def get_player_mode_settings(list_key):\n            with get_db() as conn:\n                row = conn.execute(\n                    "SELECT pred_type, double_points, double_marks, joker_count FROM list_settings WHERE list_key=?",\n                    (list_key,)\n                ).fetchone()\n            if not row:\n                return {"pred_type": "normal", "double_points": 0, "double_marks": 0, "joker_count": 0}\n            return {\n                "pred_type": row["pred_type"] or "normal",\n                "double_points": int(row["double_points"] or 0),\n                "double_marks": int(row["double_marks"] or 0),\n                "joker_count": int(row["joker_count"] or 0),\n            }\n\n        def get_used_double_count(username, list_key, mode="normal"):\n            user_preds = load_user_predictions(username)\n            matches = get_matches_by_list_key(list_key)\n            ids = {m["id"] for m in matches}\n            if mode == "1x2":\n                return sum(1 for mid, pred in user_preds.items() if mid in ids and len(pred.get("mark_opts", [])) >= 2)\n            return sum(1 for mid, pred in user_preds.items() if mid in ids and pred.get("double"))\n\n'''
+          if 'def get_player_mode_settings(list_key):' not in text:
+              if marker not in text:
+                  raise SystemExit('render_normal_match marker not found')
+              text = text.replace(marker, helper + marker, 1)
+
+          # 3) Tulosvedon tupla on pelaajan oma valinta, ei ottelun ominaisuus.
+          old = '''            saved = load_prediction(st.session_state.logged_in_user, m["id"])\n            has = saved and "home_goals" in saved\n            dbl = '<span style="background:linear-gradient(135deg,#f97316,#ef4444);color:white;font-size:0.7rem;font-weight:700;padding:3px 10px;border-radius:999px;margin-left:8px;">🔥 TUPLAPISTEET</span>' if m["double"] else ""\n'''
+          new = '''            saved = load_prediction(st.session_state.logged_in_user, m["id"])\n            has = saved and "home_goals" in saved\n            cfg = get_player_mode_settings(m.get("list_key"))\n            double_limit = cfg["double_points"]\n            saved_double = bool(saved.get("double")) if saved else False\n            used_doubles = get_used_double_count(st.session_state.logged_in_user, m.get("list_key"), "normal")\n            can_double = saved_double or used_doubles < double_limit\n            dbl = '<span style="background:linear-gradient(135deg,#f97316,#ef4444);color:white;font-size:0.7rem;font-weight:700;padding:3px 10px;border-radius:999px;margin-left:8px;">🔥 TUPLAPISTEET</span>' if saved_double else ""\n'''
+          if old in text:
+              text = text.replace(old, new, 1)
+
+          old = '''                        with c2:\n                            a = st.selectbox(f"**{m['away']}**", range(13), index=saved["away_goals"] if has else 0, key=f"{prefix}_{m['id']}_a")\n                        if st.button("Päivitä veikkaus" if has else "Tallenna veikkaus", type="secondary" if has else "primary", key=f"{prefix}_save_{m['id']}", use_container_width=True):\n                            save_prediction(st.session_state.logged_in_user, m["id"], {"home_goals": h, "away_goals": a})\n'''
+          new = '''                        with c2:\n                            a = st.selectbox(f"**{m['away']}**", range(13), index=saved["away_goals"] if has else 0, key=f"{prefix}_{m['id']}_a")\n                        if double_limit > 0:\n                            double_choice = st.checkbox(\n                                f"🔥 Tuplapisteet ({used_doubles}/{double_limit} käytetty)",\n                                value=saved_double,\n                                disabled=not can_double and not saved_double,\n                                key=f"{prefix}_double_{m['id']}",\n                            )\n                        else:\n                            double_choice = False\n                        if st.button("Päivitä veikkaus" if has else "Tallenna veikkaus", type="secondary" if has else "primary", key=f"{prefix}_save_{m['id']}", use_container_width=True):\n                            if double_choice and not saved_double and used_doubles >= double_limit:\n                                st.error(f"Tuplapisteiden enimmäismäärä ({double_limit}) on jo käytetty.")\n                                st.stop()\n                            save_prediction(st.session_state.logged_in_user, m["id"], {"home_goals": h, "away_goals": a, "double": bool(double_choice)})\n'''
+          if old in text:
+              text = text.replace(old, new, 1)
+
+          # 4) Lisää oikea 1X2-kisakortti ennen NHL-korttia.
+          marker = '        def render_nhl_match(m):\n'
+          one_x_two = r'''        def render_1x2_match(m, prefix):\n            now = datetime.now(HELSINKI)\n            is_closed = now >= m["start"]\n            saved = load_prediction(st.session_state.logged_in_user, m["id"]) or {}\n            selected = list(saved.get("mark_opts", []))\n            if not selected and saved.get("mark"):\n                selected = [saved["mark"]]\n            has = bool(selected)\n            cfg = get_player_mode_settings(m.get("list_key"))\n            double_limit = cfg["double_marks"]\n            used_doubles = get_used_double_count(st.session_state.logged_in_user, m.get("list_key"), "1x2")\n            saved_double = len(selected) >= 2\n            can_double = saved_double or used_doubles < double_limit\n\n            title_color = "#94a3b8" if is_closed else "#f1f5f9"\n            closed_badge = ' <span style="background:#334155;color:#f87171;font-size:0.7rem;font-weight:700;padding:3px 10px;border-radius:999px;margin-left:8px;">🔒 SULJETTU</span>' if is_closed else ""\n            dbl = ' <span style="background:linear-gradient(135deg,#f97316,#ef4444);color:white;font-size:0.7rem;font-weight:700;padding:3px 10px;border-radius:999px;margin-left:8px;">🔥 TUPLAMERKKI</span>' if saved_double else ""\n\n            st.markdown(\n                f'<div style="margin-bottom:4px;"><span style="font-size:1.25rem;font-weight:700;color:{title_color};">{m["home"]} – {m["away"]}</span>{dbl}{closed_badge}</div>'\n                f'<div style="font-size:0.88rem;color:#94a3b8;margin-bottom:2px;">{m["aika"]}</div>',\n                unsafe_allow_html=True\n            )\n            if not is_closed:\n                render_countdown(m["id"], m["start"])\n\n            with st.container(border=True):\n                if is_closed:\n                    if has:\n                        marks = " / ".join(selected)\n                        st.markdown(\n                            f'<div style="background:linear-gradient(145deg,#1e293b,#0f172a);border:1px solid #334155;border-radius:12px;padding:14px 12px;text-align:center;">'\n                            f'<div style="font-size:0.72rem;color:#94a3b8;">TALLENNETTU VEIKKAUS</div>'\n                            f'<div style="font-size:1.55rem;font-weight:700;color:#94a3b8;">{html.escape(marks)}</div></div>',\n                            unsafe_allow_html=True\n                        )\n                    else:\n                        st.markdown('<div style="background:#0f172a;border:1px dashed #334155;border-radius:12px;padding:18px 12px;text-align:center;color:#64748b;font-size:0.85rem;">Ei veikkausta</div>', unsafe_allow_html=True)\n                else:\n                    left, right = st.columns([1.4, 1])\n                    with left:\n                        max_marks = 2 if (double_limit > 0 and can_double) else 1\n                        marks = st.multiselect(\n                            "Valitse 1 tai 2 merkkiä",\n                            ["1", "X", "2"],\n                            default=selected,\n                            max_selections=max_marks,\n                            key=f"{prefix}_marks_{m['id']}",\n                        )\n                        if double_limit > 0:\n                            st.caption(f"Tuplamerkkejä käytetty {used_doubles}/{double_limit}. Kaksi merkkiä samassa kohteessa käyttää yhden tuplamerkin.")\n                        if st.button("Päivitä veikkaus" if has else "Tallenna veikkaus", type="secondary" if has else "primary", key=f"{prefix}_save_{m['id']}", use_container_width=True):\n                            if not marks:\n                                st.error("Valitse vähintään yksi 1X2-merkki.")\n                            elif len(marks) == 2 and not saved_double and used_doubles >= double_limit:\n                                st.error(f"Tuplamerkkien enimmäismäärä ({double_limit}) on jo käytetty.")\n                            else:\n                                save_prediction(st.session_state.logged_in_user, m["id"], {"kind": "1x2", "mark_opts": marks})\n                                clear_points_cache()\n                                st.toast("Veikkaus tallennettu!")\n                                st.rerun()\n                    with right:\n                        if has:\n                            marks = " / ".join(selected)\n                            st.markdown(\n                                f'<div style="background:linear-gradient(145deg,#1e293b,#0f172a);border:1px solid #22c55e;border-radius:12px;padding:14px 12px;text-align:center;">'\n                                f'<div style="font-size:0.72rem;color:#94a3b8;">TALLENNETTU</div>'\n                                f'<div style="font-size:1.55rem;font-weight:700;color:#f1f5f9;">{html.escape(marks)}</div></div>',\n                                unsafe_allow_html=True\n                            )\n                        else:\n                            st.markdown('<div style="background:#0f172a;border:1px dashed #334155;border-radius:12px;padding:18px 12px;text-align:center;color:#64748b;font-size:0.85rem;">Ei vielä<br>tallennettua veikkausta</div>', unsafe_allow_html=True)\n            st.markdown("<div style='height:12px;'></div>", unsafe_allow_html=True)\n\n'''
+          if 'def render_1x2_match(m, prefix):' not in text:
+              if marker not in text:
+                  raise SystemExit('render_nhl_match marker not found')
+              text = text.replace(marker, one_x_two.replace('\\n', '\n') + marker, 1)
+
+          # 5) Valitse oikea käyttöliittymä kisatyypin perusteella.
+          old = '''                pred_type = matches[0]["pred_type"] if matches else "normal"\n                if pred_type == "nhl":\n                    for m in matches:\n                        render_nhl_match(m)\n                else:\n                    for m in matches:\n                        render_normal_match(m, f"l{ti}")\n'''
+          new = '''                pred_type = matches[0]["pred_type"] if matches else "normal"\n                if pred_type == "1x2":\n                    for m in matches:\n                        render_1x2_match(m, f"l{ti}")\n                elif pred_type == "nhl":\n                    for m in matches:\n                        render_nhl_match(m)\n                else:\n                    for m in matches:\n                        render_normal_match(m, f"l{ti}")\n'''
+          if old in text:
+              text = text.replace(old, new, 1)
+
+          # 6) Omat veikkaukset tukemaan myös 1X2 mark_opts-rakennetta.
+          old = '                        if "mark" in saved:\n'
+          new = '                        if "mark" in saved or "mark_opts" in saved or saved.get("kind") == "1x2":\n'
+          if old in text:
+              text = text.replace(old, new, 1)
+          old = 'f\'<b>1X2:</b> {saved.get("mark")}<br><b>Moniveto:</b> {combos}</div>''
+          new = 'f\'<b>1X2:</b> {saved.get("mark") or " / ".join(saved.get("mark_opts", []))}<br><b>Moniveto:</b> {combos}</div>''
+          if old in text:
+              text = text.replace(old, new, 1)
+
+          # 7) Kaikkien veikkaukset / muut tekstimuodot.
+          old = '''    if "mark" in pred:\n        combos = ", ".join(f"{h}–{a}" for h in pred.get("home_opts", []) for a in pred.get("away_opts", [])) or "–"\n        return f"1X2:{pred.get('mark')} | {combos}"\n'''
+          new = '''    if "mark" in pred:\n        combos = ", ".join(f"{h}–{a}" for h in pred.get("home_opts", []) for a in pred.get("away_opts", [])) or "–"\n        return f"1X2:{pred.get('mark')} | {combos}"\n    if pred.get("kind") == "1x2" or "mark_opts" in pred:\n        return f"1X2:{' / '.join(pred.get('mark_opts', [])) or '—'}"\n'''
+          if old in text:
+              text = text.replace(old, new, 1)
+
+          # 8) Admin ei enää voi merkitä yksittäistä ottelua tuplaksi.
+          old = '            is_double = st.checkbox("Tuplapisteet", key="new_double")\n'
+          new = '            is_double = False\n            st.caption("Tuplapisteet ja tuplamerkit valitsee pelaaja. Admin ei merkitse yksittäisiä otteluita tuplaksi.")\n'
+          if old in text:
+              text = text.replace(old, new, 1)
+
+          path.write_text(text, encoding='utf-8')
+          PY
+
+          python -m py_compile mm_veikkaus.py scoring.py contest_admin.py
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git add mm_veikkaus.py scoring.py contest_admin.py
+          git diff --cached --check
+          git diff --cached --quiet || git commit -m "Apply player-selected prediction modes [auto-player-modes]"
+          git push origin HEAD:Kehitys
