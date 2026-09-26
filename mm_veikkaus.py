@@ -116,6 +116,19 @@ def init_db():
         created_at TEXT DEFAULT CURRENT_TIMESTAMP,
         PRIMARY KEY (username, match_id, is_special)
     )''')
+    prediction_columns = {row[1] for row in c.execute("PRAGMA table_info(predictions)")}
+    prediction_repairs = {
+        "username": "TEXT",
+        "match_id": "TEXT",
+        "prediction": "TEXT DEFAULT '{}'",
+        "is_special": "INTEGER NOT NULL DEFAULT 0",
+        "created_at": "TEXT DEFAULT ''",
+    }
+    for column, definition in prediction_repairs.items():
+        if column not in prediction_columns:
+            c.execute(f"ALTER TABLE predictions ADD COLUMN {column} {definition}")
+    c.execute("UPDATE predictions SET prediction='{}' WHERE prediction IS NULL")
+    c.execute("UPDATE predictions SET created_at=CURRENT_TIMESTAMP WHERE created_at IS NULL OR created_at=''")
     c.execute('''CREATE TABLE IF NOT EXISTS point_adjustments (
         id INTEGER PRIMARY KEY AUTOINCREMENT,
         username TEXT NOT NULL,
