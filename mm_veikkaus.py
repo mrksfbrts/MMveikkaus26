@@ -12,6 +12,7 @@ import zipfile
 import io
 import streamlit.components.v1 as components
 from competition_system import init_competition_db, render_admin_competitions, render_user_competitions
+from legacy_database import init_legacy_db
 
 # ====================== PERUSASETUKSET ======================
 HELSINKI = ZoneInfo("Europe/Helsinki")
@@ -101,92 +102,7 @@ span[data-baseweb="tag"] svg {
 
 # ====================== TIETOKANTA ======================
 def init_db():
-    conn = sqlite3.connect(DB_FILE)
-    c = conn.cursor()
-    c.execute('''CREATE TABLE IF NOT EXISTS users (
-        username TEXT PRIMARY KEY,
-        password_hash TEXT NOT NULL,
-        created_at TEXT DEFAULT CURRENT_TIMESTAMP
-    )''')
-    c.execute('''CREATE TABLE IF NOT EXISTS predictions (
-        username TEXT,
-        match_id TEXT,
-        prediction TEXT,
-        is_special INTEGER DEFAULT 0,
-        created_at TEXT DEFAULT CURRENT_TIMESTAMP,
-        PRIMARY KEY (username, match_id, is_special)
-    )''')
-    prediction_columns = {row[1] for row in c.execute("PRAGMA table_info(predictions)")}
-    prediction_repairs = {
-        "username": "TEXT",
-        "match_id": "TEXT",
-        "prediction": "TEXT DEFAULT '{}'",
-        "is_special": "INTEGER NOT NULL DEFAULT 0",
-        "created_at": "TEXT DEFAULT ''",
-    }
-    for column, definition in prediction_repairs.items():
-        if column not in prediction_columns:
-            c.execute(f"ALTER TABLE predictions ADD COLUMN {column} {definition}")
-    c.execute("UPDATE predictions SET prediction='{}' WHERE prediction IS NULL")
-    c.execute("UPDATE predictions SET created_at=CURRENT_TIMESTAMP WHERE created_at IS NULL OR created_at=''")
-    c.execute('''CREATE TABLE IF NOT EXISTS point_adjustments (
-        id INTEGER PRIMARY KEY AUTOINCREMENT,
-        username TEXT NOT NULL,
-        points INTEGER NOT NULL,
-        reason TEXT,
-        created_at TEXT DEFAULT CURRENT_TIMESTAMP,
-        created_by TEXT
-    )''')
-    c.execute('''CREATE TABLE IF NOT EXISTS real_results (
-        result_type TEXT,
-        id TEXT,
-        result TEXT,
-        updated_at TEXT DEFAULT CURRENT_TIMESTAMP,
-        PRIMARY KEY (result_type, id)
-    )''')
-    c.execute('''CREATE TABLE IF NOT EXISTS comments (
-        id INTEGER PRIMARY KEY AUTOINCREMENT,
-        username TEXT NOT NULL,
-        text TEXT NOT NULL,
-        created_at TEXT DEFAULT CURRENT_TIMESTAMP,
-        edited_at TEXT,
-        parent_id INTEGER DEFAULT NULL
-    )''')
-    c.execute('''CREATE TABLE IF NOT EXISTS comment_reactions (
-        comment_id INTEGER NOT NULL,
-        username TEXT NOT NULL,
-        reaction TEXT NOT NULL,
-        created_at TEXT DEFAULT CURRENT_TIMESTAMP,
-        PRIMARY KEY (comment_id, username, reaction)
-    )''')
-    c.execute('''CREATE TABLE IF NOT EXISTS matches (
-        id TEXT PRIMARY KEY,
-        list_key TEXT NOT NULL,
-        list_name TEXT NOT NULL,
-        home TEXT NOT NULL,
-        away TEXT NOT NULL,
-        aika TEXT NOT NULL,
-        start_iso TEXT NOT NULL,
-        is_double INTEGER DEFAULT 0,
-        sort_order INTEGER DEFAULT 0,
-        pred_type TEXT DEFAULT 'normal'
-    )''')
-
-    try:
-        c.execute("ALTER TABLE comments ADD COLUMN parent_id INTEGER DEFAULT NULL")
-    except Exception:
-        pass
-
-    c.execute("CREATE INDEX IF NOT EXISTS idx_pred_user_match ON predictions(username, match_id)")
-    c.execute("CREATE INDEX IF NOT EXISTS idx_pred_match ON predictions(match_id)")
-    c.execute("CREATE INDEX IF NOT EXISTS idx_results_id ON real_results(id)")
-    c.execute("CREATE INDEX IF NOT EXISTS idx_adj_user ON point_adjustments(username)")
-    c.execute("CREATE INDEX IF NOT EXISTS idx_comments_parent ON comments(parent_id)")
-    c.execute("CREATE INDEX IF NOT EXISTS idx_comments_created ON comments(created_at DESC)")
-    c.execute("CREATE INDEX IF NOT EXISTS idx_matches_list ON matches(list_key, sort_order)")
-
-    conn.commit()
-    conn.close()
+    init_legacy_db(DB_FILE)
 
 def get_db():
     conn = sqlite3.connect(DB_FILE)
