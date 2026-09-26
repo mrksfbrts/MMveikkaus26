@@ -11,6 +11,7 @@ import html
 import zipfile
 import io
 import streamlit.components.v1 as components
+from competition_system import init_competition_db, render_admin_competitions, render_user_competitions
 
 # ====================== PERUSASETUKSET ======================
 HELSINKI = ZoneInfo("Europe/Helsinki")
@@ -179,6 +180,7 @@ def get_db():
     return conn
 
 init_db()
+init_competition_db(DB_FILE)
 
 # ====================== SEED-OTTELUT (ensimmäinen käynnistys) ======================
 SEED_MATCHES = {
@@ -924,7 +926,7 @@ elif not st.session_state.get("logged_in_user"):
 
 else:
     st.sidebar.markdown("<div style='height:12px;'></div>", unsafe_allow_html=True)
-    menu = ["Etusivu", "Kisainfo", "VEIKKAUSKISA", "Veikkaustilanne", "Omat veikkaukset", "Kaikkien veikkaukset", "Hall Of Fame"]
+    menu = ["Etusivu", "Kisainfo", "VEIKKAUSKISA", "Veikkauskisat", "Veikkaustilanne", "Omat veikkaukset", "Kaikkien veikkaukset", "Hall Of Fame"]
 
     if st.session_state.page == "Admin":
         page = "Admin"
@@ -1751,7 +1753,7 @@ if page == "Admin":
     admin_tab = st.radio(
         "Valitse toiminto",
         ["Käyttäjien hallinta", "Tulosten syöttö", "Pistekorjaukset", "Listabonukset",
-         "Otteluiden hallinta", "Varmuuskopiointi & palautus", "Keskustelu"],
+         "Otteluiden hallinta", "Veikkauskisat", "Varmuuskopiointi & palautus", "Keskustelu"],
         horizontal=True
     )
 
@@ -2216,6 +2218,9 @@ if page == "Admin":
                         st.session_state[rk] = False
                         st.rerun()
 
+    elif admin_tab == "Veikkauskisat":
+        render_admin_competitions(DB_FILE, st.session_state.logged_in_user or "admin")
+
     elif admin_tab == "Keskustelu":
         st.subheader("💬 Keskustelun tyhjennys")
         st.warning("Poistaa **kaikki** kommentit pysyvästi.")
@@ -2238,3 +2243,7 @@ if page == "Admin":
                 if st.button("Peruuta"):
                     st.session_state[ck] = False
                     st.rerun()
+
+# ====================== UUDET VEIKKAUSKISAT ======================
+if page == "Veikkauskisat" and st.session_state.get("logged_in_user"):
+    render_user_competitions(DB_FILE, st.session_state.logged_in_user)
