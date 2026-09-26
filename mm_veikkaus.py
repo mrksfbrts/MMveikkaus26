@@ -25,7 +25,8 @@ def get_secret(key, env_key, default=None):
 
 SITE_PASSWORD = get_secret("site_password", "SITE_PASSWORD")
 ADMIN_PASSWORD = get_secret("admin_password", "ADMIN_PASSWORD")
-DB_FILE = os.environ.get("DB_PATH", "veikkaus.db")
+DB_FILE = os.environ.get("DB_PATH") or "veikkaus.db"
+os.makedirs(os.path.dirname(os.path.abspath(DB_FILE)), exist_ok=True)
 
 if not SITE_PASSWORD or not ADMIN_PASSWORD:
     st.error("SITE_PASSWORD ja ADMIN_PASSWORD pitää olla asetettu (Render environment / st.secrets).")
