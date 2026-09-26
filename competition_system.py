@@ -426,6 +426,29 @@ def _competition_standings(conn, competition_id):
     return lists,by_list,rankings
 
 
+def get_competition_standings(db_path, competition_id):
+    """Return the selected competition and its overall/per-list scoreboards."""
+    with connect(db_path) as conn:
+        competition, lists = _competition_data(conn, competition_id)
+        _, list_points, standings = _competition_standings(conn, competition_id)
+    return {
+        "competition": dict(competition),
+        "lists": [dict(lst) for lst in lists],
+        "list_points": list_points,
+        "standings": standings,
+    }
+
+
+def get_rankable_competitions(db_path):
+    """List competitions visible on the user-facing ranking page."""
+    with connect(db_path) as conn:
+        rows = conn.execute(
+            "SELECT id,name,status FROM competitions "
+            "WHERE status IN ('published','finished','archived') ORDER BY sort_order,id DESC"
+        ).fetchall()
+    return [dict(row) for row in rows]
+
+
 def _target_label(target):
     if _target_ready(target):
         return f"{target['home']} – {target['away']}"
@@ -434,125 +457,166 @@ def _target_label(target):
 
 def render_user_competitions(db_path, username):
     import streamlit as st
-    st.subheader("Veikkauskisat")
     with connect(db_path) as conn:
         competitions = _all_competitions(conn,"published")
-        finished = _all_competitions(conn,"finished")
-    if not competitions and not finished:
+    if not competitions:
         st.info("Julkaistuja kilpailuja ei vielä ole.")
-    for comp in list(competitions)+list(finished):
-        with connect(db_path) as conn:
-            _, lists = _competition_data(conn,comp["id"])
-            _, list_points, standings = _competition_standings(conn,comp["id"])
-        with st.expander(f"{comp['name']} · {dict(draft='Luonnos',published='Julkaistu',finished='Päättynyt',archived='Arkistoitu')[comp['status']]}",expanded=comp["status"]=="published"):
-            if comp["description"]:
-                st.write(comp["description"])
-            if not lists:
-                st.info("Kilpailussa ei ole listoja.")
-                continue
-            tabs=st.tabs([lst["name"] for lst in lists])
-            for idx,lst in enumerate(lists):
-                with tabs[idx]:
-                    st.markdown("#### Listan pisteet ja sijoitukset")
-                    list_standings=sorted(({"username":u,"points":list_points.get(lst["id"],{}).get(u,0)} for u in {row["username"] for row in standings}),key=lambda row:(-row["points"],row["username"].casefold()))
-                    last_points=None
-                    place=0
-                    for position,row in enumerate(list_standings,1):
-                        if last_points is None or row["points"]!=last_points: place=position
-                        st.write(f"{place}. **{row['username']}** · {row['points']} p")
-                        last_points=row["points"]
-                    st.caption(f"{TYPE_LABELS[lst['prediction_type']]} · Pelimerkit: "+" · ".join(f"{TOKEN_LABELS[k]} {v}" for k,v in _list_token_counts(lst).items() if v))
+        return
+
+    selected_index = 0
+    if len(competitions) > 1:
+        selected_index = st.selectbox(
+            "Kilpailu",
+            list(range(len(competitions))),
+            format_func=lambda index: competitions[index]["name"],
+            key="user_competition_selection",
+        )
+    comp = competitions[selected_index]
+    st.subheader(comp["name"])
+    if comp["description"]:
+        st.caption(comp["description"])
+
+    with connect(db_path) as conn:
+        _, lists = _competition_data(conn, comp["id"])
+    if not lists:
+        st.info("Kilpailussa ei ole listoja.")
+        return
+
+    tabs = st.tabs([lst["name"] for lst in lists])
+    for idx, lst in enumerate(lists):
+        with tabs[idx]:
+            st.caption(TYPE_LABELS[lst["prediction_type"]] + " · Pelimerkit: " + " · ".join(
+                f"{TOKEN_LABELS[k]} {v}" for k, v in _list_token_counts(lst).items() if v
+            ))
+            with connect(db_path) as conn:
+                available = _available_tokens(conn, username, lst)
+                targets = conn.execute(
+                    "SELECT * FROM competition_targets WHERE list_id=? ORDER BY sort_order,id",
+                    (lst["id"],),
+                ).fetchall()
+            if available:
+                st.caption("Käytettävissä: " + " · ".join(
+                    f"{TOKEN_LABELS[k]} {v}" for k, v in available.items()
+                ))
+            if not targets:
+                st.info("Listalla ei ole vielä kohteita.")
+            for target in targets:
+                open_now = comp["status"] == "published" and _target_open(target)
+                start = _parse_start(target["start_iso"]).strftime("%d.%m.%Y %H:%M")
+                title = _target_label(target)
+                if target["status"] == "cancelled":
+                    title += " · Peruttu"
+                elif not _target_ready(target):
+                    title += " · Osallistujat vahvistamatta"
+                st.markdown(
+                    f"**{title}**  \n{start} (Helsinki)" + (" · Suljettu" if not open_now else " · Avoinna")
+                )
+                if not _target_ready(target):
+                    st.info("Ennusteen voi tehdä, kun osapuolet ovat tiedossa.")
+                    continue
+                with connect(db_path) as conn:
+                    pred_row = conn.execute(
+                        "SELECT prediction_data FROM user_predictions WHERE username=? AND target_id=?",
+                        (username, target["id"]),
+                    ).fetchone()
+                    token_row = conn.execute(
+                        "SELECT token_type FROM token_assignments WHERE username=? AND target_id=? AND status IN ('assigned','spent')",
+                        (username, target["id"]),
+                    ).fetchone()
+                    list_type = lst["prediction_type"]
+                saved = json.loads(pred_row["prediction_data"]) if pred_row else {}
+                token = token_row["token_type"] if token_row else None
+                if target["result_home"] is not None:
+                    real = {"home_goals": target["result_home"], "away_goals": target["result_away"]}
+                    own = score_prediction(list_type, saved, real, token) if saved else 0
+                    st.caption(f"Tulos {real['home_goals']}–{real['away_goals']} · Oma pistemäärä: {own}")
+                if not open_now:
+                    st.caption("Oma ennuste: " + _prediction_text(list_type, saved, token))
+                    continue
+
+                if token:
+                    st.caption(f"Pelimerkki tässä kohteessa: {TOKEN_LABELS[token]}")
+                    if st.button("Poista pelimerkki", key=f"remove_token_{target['id']}"):
+                        try:
+                            _remove_token(db_path, username, target["id"])
+                            st.rerun()
+                        except ValueError as exc:
+                            st.error(str(exc))
+                else:
+                    choices = [("Ei pelimerkkiä", "")]
                     with connect(db_path) as conn:
-                        available=_available_tokens(conn,username,lst)
-                        targets=conn.execute("SELECT * FROM competition_targets WHERE list_id=? ORDER BY sort_order,id",(lst["id"],)).fetchall()
-                    if available:
-                        st.caption("Käytettävissä: "+" · ".join(f"{TOKEN_LABELS[k]} {v}" for k,v in available.items()))
-                    for target in targets:
-                        open_now=comp["status"]=="published" and _target_open(target)
-                        closed=not open_now
-                        start=_parse_start(target["start_iso"]).strftime("%d.%m.%Y %H:%M")
-                        title=_target_label(target)
-                        if target["status"]=="cancelled":
-                            title += " · Peruttu"
-                        elif not _target_ready(target):
-                            title += " · Osallistujat vahvistamatta"
-                        st.markdown(f"**{title}**  \n{start} (Helsinki)"+(" · Suljettu" if closed else " · Avoinna"))
-                        if not _target_ready(target):
-                            st.info("Ennusteen voi tehdä, kun osapuolet ovat tiedossa.")
-                            continue
-                        with connect(db_path) as conn:
-                            pred_row=conn.execute("SELECT prediction_data FROM user_predictions WHERE username=? AND target_id=?",(username,target["id"])).fetchone()
-                            token_row=conn.execute("SELECT token_type FROM token_assignments WHERE username=? AND target_id=? AND status IN ('assigned','spent')",(username,target["id"])).fetchone()
-                            others=conn.execute("SELECT username,prediction_data FROM user_predictions WHERE target_id=?",(target["id"],)).fetchall()
-                            list_type=lst["prediction_type"]
-                        saved=json.loads(pred_row["prediction_data"]) if pred_row else {}
-                        token=token_row["token_type"] if token_row else None
-                        if target["result_home"] is not None:
-                            real={"home_goals":target["result_home"],"away_goals":target["result_away"]}
-                            own=score_prediction(list_type,saved,real,token) if saved else 0
-                            st.caption(f"Tulos {real['home_goals']}–{real['away_goals']} · Oma pistemäärä: {own}")
-                        if not open_now:
-                            st.caption("Oma ennuste: "+_prediction_text(list_type,saved,token))
-                            if comp["status"]!="published":
-                                with connect(db_path) as conn:
-                                    result={"home_goals":target["result_home"],"away_goals":target["result_away"]} if target["result_home"] is not None else None
-                                    pts=score_prediction(list_type,saved,result,token) if result else 0
-                                st.caption("Muiden suljetut ennusteet: "+" · ".join(f"{row['username']}: {_prediction_text(list_type,json.loads(row['prediction_data']))}" for row in others))
-                            continue
-                        if token:
-                            st.caption(f"Pelimerkki tässä kohteessa: {TOKEN_LABELS[token]}")
-                            if st.button("Poista pelimerkki",key=f"remove_token_{target['id']}"):
-                                try: _remove_token(db_path,username,target["id"]); st.rerun()
-                                except ValueError as e: st.error(str(e))
-                        else:
-                            choices=[("Ei pelimerkkiä","")]
-                            with connect(db_path) as conn:
-                                token_balance = _available_tokens(conn,username,lst)
-                            choices += [(TOKEN_LABELS[k],k) for k,v in token_balance.items() if v]
-                            selected=st.selectbox("Pelimerkki",choices,key=f"token_choice_{target['id']}",format_func=lambda x:x[0])
-                            kind=selected[1]
-                            if kind and st.button("Käytä pelimerkki tässä kohteessa",key=f"assign_token_{target['id']}"):
-                                try: _assign_token(db_path,username,target["id"],kind); st.rerun()
-                                except (ValueError,sqlite3.IntegrityError) as e: st.error(str(e))
-                        if list_type in ("hockey_score","football_score"):
-                            c1,c2=st.columns(2)
-                            with c1: h=st.number_input("Kotimaalit",0,30,int(saved.get("home_goals",0)),key=f"pred_h_{target['id']}")
-                            with c2: a=st.number_input("Vier maalit",0,30,int(saved.get("away_goals",0)),key=f"pred_a_{target['id']}")
-                            prediction={"home_goals":int(h),"away_goals":int(a)}
-                        elif list_type=="result_1x2":
-                            opts=["1","X","2"]
-                            if token=="harava":
-                                defaults=saved.get("marks",["1","X"])
-                                marks=st.multiselect("Valitse kaksi merkkiä",opts,default=defaults,key=f"marks_{target['id']}",max_selections=2)
-                                prediction={"marks":marks}
-                            else:
-                                mark=st.radio("1X2",opts,index=opts.index(saved.get("mark","1")),horizontal=True,key=f"mark_{target['id']}")
-                                prediction={"mark":mark}
-                        else:
-                            n=4 if list_type=="hockey_multi" else 2
-                            scores=[]
-                            for j in range(n):
-                                c1,c2=st.columns(2)
-                                old=saved.get("scores",[])
-                                with c1: sh=st.number_input(f"Tulos {j+1} · koti",0,30,int(old[j].get("home_goals",0)) if j<len(old) else 0,key=f"mh_{target['id']}_{j}")
-                                with c2: sa=st.number_input(f"Tulos {j+1} · vieras",0,30,int(old[j].get("away_goals",0)) if j<len(old) else 0,key=f"ma_{target['id']}_{j}")
-                                scores.append({"home_goals":int(sh),"away_goals":int(sa)})
-                            mark=st.radio("Monivedon 1X2",["1","X","2"],index=["1","X","2"].index(saved.get("mark","1")),horizontal=True,key=f"mmark_{target['id']}")
-                            prediction={"scores":scores,"mark":mark}
-                            if token=="jokeri":
-                                js=saved.get("joker_score",{})
-                                c1,c2=st.columns(2)
-                                with c1: jh=st.number_input("Jokeri · koti",0,30,int(js.get("home_goals",0)),key=f"jh_{target['id']}")
-                                with c2: ja=st.number_input("Jokeri · vieras",0,30,int(js.get("away_goals",0)),key=f"ja_{target['id']}")
-                                prediction["joker_score"]={"home_goals":int(jh),"away_goals":int(ja)}
-                        if st.button("Tallenna ennuste",key=f"save_prediction_{target['id']}",type="primary"):
-                            try: _save_prediction(db_path,username,target["id"],prediction); st.toast("Ennuste tallennettu."); st.rerun()
-                            except ValueError as e: st.error(str(e))
-                        st.divider()
-            st.markdown("#### Kilpailun kokonaisranking")
-            for row in standings:
-                bonus=f" (sis. {row['bonus_points']:+d} bonus)" if row["bonus_points"] else ""
-                st.write(f"{row['rank']}. **{row['username']}** · {row['points']} p{bonus}")
+                        token_balance = _available_tokens(conn, username, lst)
+                    choices += [(TOKEN_LABELS[k], k) for k, value in token_balance.items() if value]
+                    selected_token = st.selectbox(
+                        "Pelimerkki", choices, key=f"token_choice_{target['id']}", format_func=lambda item: item[0]
+                    )
+                    kind = selected_token[1]
+                    if kind and st.button("Käytä pelimerkki tässä kohteessa", key=f"assign_token_{target['id']}"):
+                        try:
+                            _assign_token(db_path, username, target["id"], kind)
+                            st.rerun()
+                        except (ValueError, sqlite3.IntegrityError) as exc:
+                            st.error(str(exc))
+
+                if list_type in ("hockey_score", "football_score"):
+                    c1, c2 = st.columns(2)
+                    with c1:
+                        home_goals = st.number_input("Kotimaalit", 0, 30, int(saved.get("home_goals", 0)), key=f"pred_h_{target['id']}")
+                    with c2:
+                        away_goals = st.number_input("Vier maalit", 0, 30, int(saved.get("away_goals", 0)), key=f"pred_a_{target['id']}")
+                    prediction = {"home_goals": int(home_goals), "away_goals": int(away_goals)}
+                elif list_type == "result_1x2":
+                    options = ["1", "X", "2"]
+                    if token == "harava":
+                        prediction = {"marks": st.multiselect(
+                            "Valitse kaksi merkkiä", options, default=saved.get("marks", ["1", "X"]),
+                            key=f"marks_{target['id']}", max_selections=2,
+                        )}
+                    else:
+                        mark = st.radio(
+                            "1X2", options, index=options.index(saved.get("mark", "1")),
+                            horizontal=True, key=f"mark_{target['id']}",
+                        )
+                        prediction = {"mark": mark}
+                else:
+                    score_count = 4 if list_type == "hockey_multi" else 2
+                    scores = []
+                    for score_idx in range(score_count):
+                        old_scores = saved.get("scores", [])
+                        old_score = old_scores[score_idx] if score_idx < len(old_scores) else {}
+                        c1, c2 = st.columns(2)
+                        with c1:
+                            home_goals = st.number_input(
+                                f"Tulos {score_idx + 1} · koti", 0, 30, int(old_score.get("home_goals", 0)),
+                                key=f"mh_{target['id']}_{score_idx}",
+                            )
+                        with c2:
+                            away_goals = st.number_input(
+                                f"Tulos {score_idx + 1} · vieras", 0, 30, int(old_score.get("away_goals", 0)),
+                                key=f"ma_{target['id']}_{score_idx}",
+                            )
+                        scores.append({"home_goals": int(home_goals), "away_goals": int(away_goals)})
+                    mark = st.radio(
+                        "Monivedon 1X2", ["1", "X", "2"], index=["1", "X", "2"].index(saved.get("mark", "1")),
+                        horizontal=True, key=f"mmark_{target['id']}",
+                    )
+                    prediction = {"scores": scores, "mark": mark}
+                    if token == "jokeri":
+                        joker = saved.get("joker_score", {})
+                        c1, c2 = st.columns(2)
+                        with c1:
+                            joker_home = st.number_input("Jokeri · koti", 0, 30, int(joker.get("home_goals", 0)), key=f"jh_{target['id']}")
+                        with c2:
+                            joker_away = st.number_input("Jokeri · vieras", 0, 30, int(joker.get("away_goals", 0)), key=f"ja_{target['id']}")
+                        prediction["joker_score"] = {"home_goals": int(joker_home), "away_goals": int(joker_away)}
+                if st.button("Tallenna ennuste", key=f"save_prediction_{target['id']}", type="primary"):
+                    try:
+                        _save_prediction(db_path, username, target["id"], prediction)
+                        st.toast("Ennuste tallennettu.")
+                        st.rerun()
+                    except ValueError as exc:
+                        st.error(str(exc))
+                st.divider()
 
 
 def render_admin_competitions(db_path, admin_username="admin"):
