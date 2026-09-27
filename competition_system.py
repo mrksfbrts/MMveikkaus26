@@ -542,21 +542,18 @@ def render_user_competitions(db_path, username):
     for idx, lst in enumerate(lists):
         with tabs[idx]:
             token_counts = _list_token_counts(lst)
-            list_tokens = " · ".join(
-                f"{TOKEN_LABELS[k]} {v}" for k, v in token_counts.items() if v
-            ) or "Ei pelimerkkejä"
-            st.caption(TYPE_LABELS[lst["prediction_type"]] + " · Pelimerkkimäärät: " + list_tokens)
             with connect(db_path) as conn:
                 available = _available_tokens(conn, username, lst)
                 targets = conn.execute(
                     "SELECT * FROM competition_targets WHERE list_id=? ORDER BY sort_order,id",
                     (lst["id"],),
                 ).fetchall()
-            if available:
-                remaining_labels = {"tuplaus": "Tuplauksia", "harava": "Haravoita", "jokeri": "Jokereita"}
-                st.caption(" · ".join(
-                    f"{remaining_labels[k]} jäljellä: {v}" for k, v in available.items()
-                ))
+            remaining_labels = {"tuplaus": "Tuplauksia", "harava": "Haravoita", "jokeri": "Jokereita"}
+            token_summary = " · ".join(
+                f"{remaining_labels[k]} jäljellä {available.get(k, 0)} / {token_counts[k]}"
+                for k in ALLOWED_TOKENS[lst["prediction_type"]]
+            ) or "Ei pelimerkkejä"
+            st.caption(TYPE_LABELS[lst["prediction_type"]] + " · " + token_summary)
             if not targets:
                 st.info("Listalla ei ole vielä kohteita.")
             for target in targets:
@@ -570,8 +567,13 @@ def render_user_competitions(db_path, username):
                 with st.container(border=True):
                     title_col, status_col = st.columns([5, 1])
                     with title_col:
-                        st.markdown(f"**{title}**")
-                        st.caption(start)
+                        st.markdown(
+                            '<div style="text-align:center;font-weight:750;font-size:1.05rem;'
+                            f'line-height:1.25;">{html.escape(title)}</div>'
+                            f'<div style="text-align:center;color:#94a3b8;font-size:.82rem;'
+                            f'margin-top:1px;">{html.escape(start)}</div>',
+                            unsafe_allow_html=True,
+                        )
                     with status_col:
                         st.markdown("🟢 **AUKI**" if open_now else "🔒 **SULJETTU**")
 
@@ -591,14 +593,16 @@ def render_user_competitions(db_path, username):
 
                     allowed_token = ALLOWED_TOKENS[list_type][0] if ALLOWED_TOKENS[list_type] else None
                     display_prediction = _prediction_text(list_type, saved, token)
+                    has_prediction = bool(saved)
+                    compact_empty = not has_prediction and not token and target["result_home"] is None
+                    prediction_size = "1rem" if compact_empty else "2rem"
+                    prediction_color = "#cbd5e1" if compact_empty else "#f8fafc"
+                    prediction_margin = "1px 0 2px" if compact_empty else "1px 0 5px"
                     st.markdown(
-                        '<div style="text-align:center;color:#94a3b8;font-size:0.78rem;'
-                        'font-weight:700;letter-spacing:.12em;margin-top:4px;">OMA VEIKKAUS</div>',
-                        unsafe_allow_html=True,
-                    )
-                    st.markdown(
-                        '<div style="text-align:center;color:#f8fafc;font-size:2rem;line-height:1.2;'
-                        'font-weight:800;margin:2px 0 8px;">'
+                        '<div style="text-align:center;color:#94a3b8;font-size:.72rem;'
+                        'font-weight:700;letter-spacing:.12em;margin:5px 0 0;">OMA VEIKKAUS</div>'
+                        f'<div style="text-align:center;color:{prediction_color};font-size:{prediction_size};'
+                        f'line-height:1.12;font-weight:800;margin:{prediction_margin};">'
                         f'{html.escape(str(display_prediction))}</div>',
                         unsafe_allow_html=True,
                     )
@@ -606,7 +610,7 @@ def render_user_competitions(db_path, username):
                     if token:
                         st.markdown(
                             '<div style="text-align:center;color:#facc15;font-size:.9rem;'
-                            'font-weight:700;margin:0 0 6px;">'
+                            'font-weight:700;margin:0 0 3px;">'
                             f'🎟 {html.escape(TOKEN_LABELS[token].upper())} KÄYTÖSSÄ</div>',
                             unsafe_allow_html=True,
                         )
@@ -644,10 +648,13 @@ def render_user_competitions(db_path, username):
                             own = score_prediction(list_type, saved, real, token) if saved else 0
                             result_col, points_col = st.columns([4, 1])
                             with result_col:
-                                st.caption(f"Tulos {real['home_goals']}–{real['away_goals']}")
+                                st.markdown(
+                                    f'<div style="padding-top:3px;">Tulos {real["home_goals"]}–{real["away_goals"]}</div>',
+                                    unsafe_allow_html=True,
+                                )
                             with points_col:
                                 st.markdown(
-                                    f'<div style="text-align:right;font-size:1.1rem;font-weight:800;'
+                                    f'<div style="text-align:right;font-size:1.1rem;font-weight:800;padding-top:2px;'
                                     f'color:#22c55e;">{own} p</div>',
                                     unsafe_allow_html=True,
                                 )
@@ -736,10 +743,13 @@ def render_user_competitions(db_path, username):
                         own = score_prediction(list_type, saved, real, token) if saved else 0
                         result_col, points_col = st.columns([4, 1])
                         with result_col:
-                            st.caption(f"Tulos {real['home_goals']}–{real['away_goals']}")
+                            st.markdown(
+                                f'<div style="padding-top:3px;">Tulos {real["home_goals"]}–{real["away_goals"]}</div>',
+                                unsafe_allow_html=True,
+                            )
                         with points_col:
                             st.markdown(
-                                f'<div style="text-align:right;font-size:1.1rem;font-weight:800;'
+                                f'<div style="text-align:right;font-size:1.1rem;font-weight:800;padding-top:2px;'
                                 f'color:#22c55e;">{own} p</div>',
                                 unsafe_allow_html=True,
                             )
