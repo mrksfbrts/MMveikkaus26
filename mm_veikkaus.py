@@ -15,8 +15,10 @@ from competition_system import (
     get_competition_standings,
     get_rankable_competitions,
     init_competition_db,
+    render_admin_competition_results,
     render_admin_competitions,
     render_user_competitions,
+    render_user_predictions,
 )
 from legacy_database import init_legacy_db
 
@@ -1286,74 +1288,7 @@ if page == "Veikkaustilanne":
 # ====================== OMAT VEIKKAUKSET ======================
 if page == "Omat veikkaukset":
     st.subheader("Omat veikkaukset")
-    st.divider()
-    all_lists, _ = load_all_match_lists()
-    if not all_lists:
-        st.info("Ei otteluita.")
-    else:
-        tabs = st.tabs([name for name, _ in all_lists])
-
-        def render_own(matches):
-            uname = st.session_state.logged_in_user
-            pts, done, total = calculate_list_points(uname, matches)
-            summary_card("Yhteensä", f"{pts} pistettä", f"{done}/{total} veikkausta tallennettu")
-            user_preds = load_user_predictions(uname)
-            _, _, _, result_map, *_ = get_full_points_data()
-            found = False
-            for m in matches:
-                saved = user_preds.get(m["id"])
-                if not saved:
-                    continue
-                found = True
-                real = result_map.get(m["id"])
-                points = calculate_match_points(saved, real, m["double"])
-                dbl = " 🔥 " if m["double"] else ""
-                st.markdown(f"### {m['home']} – {m['away']}{dbl}")
-                st.markdown(f"<p style='font-size:0.9rem;color:#94a3b8;margin-top:-6px;margin-bottom:10px;'>{m['aika']}</p>", unsafe_allow_html=True)
-                with st.container(border=True):
-                    c1, c2, c3 = st.columns([1.4, 1.4, 1])
-                    with c1:
-                        if "mark" in saved:
-                            combos = ", ".join(f"{h}–{a}" for h in saved.get("home_opts", []) for a in saved.get("away_opts", [])) or "–"
-                            st.markdown(
-                                f'<div style="font-size:0.78rem;color:#94a3b8;margin-bottom:6px;">Oma veikkaus</div>'
-                                f'<div style="font-size:1rem;color:#e2e8f0;"><b>1X2:</b> {saved.get("mark")}<br><b>Moniveto:</b> {combos}</div>',
-                                unsafe_allow_html=True
-                            )
-                        else:
-                            st.markdown(
-                                f'<div style="font-size:0.78rem;color:#94a3b8;margin-bottom:6px;">Oma veikkaus</div>'
-                                f'<div style="font-size:1.45rem;font-weight:700;color:#f1f5f9;">{saved.get("home_goals")} – {saved.get("away_goals")}</div>',
-                                unsafe_allow_html=True
-                            )
-                    with c2:
-                        if real:
-                            st.markdown(
-                                f'<div style="font-size:0.78rem;color:#94a3b8;margin-bottom:6px;">Oikea tulos</div>'
-                                f'<div style="font-size:1.45rem;font-weight:700;color:#22c55e;">{real["home_goals"]} – {real["away_goals"]}</div>',
-                                unsafe_allow_html=True
-                            )
-                        else:
-                            st.markdown(
-                                '<div style="font-size:0.78rem;color:#94a3b8;margin-bottom:6px;">Oikea tulos</div>'
-                                '<div style="font-size:1.1rem;color:#64748b;">Tulosta odotellessa...</div>',
-                                unsafe_allow_html=True
-                            )
-                    with c3:
-                        col = "#22c55e" if points >= 8 else "#fbbf24" if points >= 4 else "#94a3b8" if points > 0 else "#64748b"
-                        st.markdown(
-                            f'<div style="font-size:0.78rem;color:#94a3b8;margin-bottom:6px;">Pisteet</div>'
-                            f'<div style="font-size:1.55rem;font-weight:700;color:{col};">{points}</div>',
-                            unsafe_allow_html=True
-                        )
-                st.markdown("<div style='height:8px;'></div>", unsafe_allow_html=True)
-            if not found:
-                st.info("Et ole vielä tallentanut yhtään veikkausta tälle listalle.")
-
-        for i, (_, matches) in enumerate(all_lists):
-            with tabs[i]:
-                render_own(matches)
-
+    render_user_predictions(DB_FILE, st.session_state.logged_in_user)
 # ====================== KAIKKIEN VEIKKAUKSET ======================
 if page == "Kaikkien veikkaukset":
     st.subheader("Kaikkien veikkaukset")
@@ -1497,7 +1432,8 @@ if page == "Admin":
     admin_tab = st.radio(
         "Valitse toiminto",
         ["Käyttäjien hallinta", "Tulosten syöttö", "Pistekorjaukset", "Listabonukset",
-         "Otteluiden hallinta", "Veikkauskisat", "Varmuuskopiointi & palautus", "Keskustelu"],
+         "Otteluiden hallinta", "Veikkauskisat", "Kilpailujen tulokset",
+         "Varmuuskopiointi & palautus", "Keskustelu"],
         horizontal=True
     )
 
@@ -1964,6 +1900,9 @@ if page == "Admin":
 
     elif admin_tab == "Veikkauskisat":
         render_admin_competitions(DB_FILE, st.session_state.logged_in_user or "admin")
+
+    elif admin_tab == "Kilpailujen tulokset":
+        render_admin_competition_results(DB_FILE)
 
     elif admin_tab == "Keskustelu":
         st.subheader("💬 Keskustelun tyhjennys")
