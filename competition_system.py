@@ -642,15 +642,19 @@ def render_user_competitions(db_path, username):
                         if target["result_home"] is not None:
                             real = {"home_goals": target["result_home"], "away_goals": target["result_away"]}
                             own = score_prediction(list_type, saved, real, token) if saved else 0
-                            result_col, points_col = st.columns([4, 1])
-                            with result_col:
-                                st.caption(f"Tulos {real['home_goals']}–{real['away_goals']}")
-                            with points_col:
-                                st.markdown(
-                                    f'<div style="text-align:right;font-size:1.1rem;font-weight:800;'
-                                    f'color:#22c55e;">{own} p</div>',
-                                    unsafe_allow_html=True,
-                                )
+                            st.markdown(
+                                '<div style="text-align:center;margin:16px 0 2px;">'
+                                '<div style="color:#94a3b8;font-size:.78rem;font-weight:700;'
+                                'letter-spacing:.12em;">TOTEUTUNUT TULOS</div>'
+                                f'<div style="color:#f8fafc;font-size:1.65rem;line-height:1.2;'
+                                f'font-weight:800;margin:2px 0 10px;">'
+                                f'{real["home_goals"]} – {real["away_goals"]}</div>'
+                                '<div style="color:#94a3b8;font-size:.78rem;font-weight:700;'
+                                'letter-spacing:.12em;">SAADUT PISTEET</div>'
+                                f'<div style="color:#22c55e;font-size:1.8rem;line-height:1.2;'
+                                f'font-weight:900;margin-top:2px;">{own} p</div></div>',
+                                unsafe_allow_html=True,
+                            )
                         continue
                     if not _target_ready(target):
                         st.info("Veikkauksen voi tehdä, kun osapuolet ovat tiedossa.")
@@ -734,15 +738,19 @@ def render_user_competitions(db_path, username):
                     if target["result_home"] is not None:
                         real = {"home_goals": target["result_home"], "away_goals": target["result_away"]}
                         own = score_prediction(list_type, saved, real, token) if saved else 0
-                        result_col, points_col = st.columns([4, 1])
-                        with result_col:
-                            st.caption(f"Tulos {real['home_goals']}–{real['away_goals']}")
-                        with points_col:
-                            st.markdown(
-                                f'<div style="text-align:right;font-size:1.1rem;font-weight:800;'
-                                f'color:#22c55e;">{own} p</div>',
-                                unsafe_allow_html=True,
-                            )
+                        st.markdown(
+                            '<div style="text-align:center;margin:16px 0 2px;">'
+                            '<div style="color:#94a3b8;font-size:.78rem;font-weight:700;'
+                            'letter-spacing:.12em;">TOTEUTUNUT TULOS</div>'
+                            f'<div style="color:#f8fafc;font-size:1.65rem;line-height:1.2;'
+                            f'font-weight:800;margin:2px 0 10px;">'
+                            f'{real["home_goals"]} – {real["away_goals"]}</div>'
+                            '<div style="color:#94a3b8;font-size:.78rem;font-weight:700;'
+                            'letter-spacing:.12em;">SAADUT PISTEET</div>'
+                            f'<div style="color:#22c55e;font-size:1.8rem;line-height:1.2;'
+                            f'font-weight:900;margin-top:2px;">{own} p</div></div>',
+                            unsafe_allow_html=True,
+                        )
 
 
 def render_user_predictions(db_path, username):
