@@ -209,7 +209,7 @@ def _available_tokens(conn, username, list_row):
 
 def _prediction_text(prediction_type, prediction, token_type=None):
     if not prediction:
-        return "Ei ennustetta"
+        return "Ei veikkausta"
     if prediction_type in ("hockey_score", "football_score"):
         return f"{prediction.get('home_goals','?')}–{prediction.get('away_goals','?')}"
     if prediction_type == "result_1x2":
@@ -253,7 +253,7 @@ def _create_competition(db_path, name, description, lists):
 
 def _update_competition_list(db_path, list_id, name, prediction_type, order, counts):
     if prediction_type not in PREDICTION_TYPES.values() or not name.strip():
-        raise ValueError("Tarkista listan nimi ja ennustemuoto.")
+        raise ValueError("Tarkista listan nimi ja veikkausmuoto.")
     with connect(db_path) as conn:
         row=conn.execute("SELECT l.*,c.status comp_status FROM competition_lists l JOIN competitions c ON c.id=l.competition_id WHERE l.id=?",(list_id,)).fetchone()
         if not row or row["comp_status"]!="draft":
@@ -343,7 +343,7 @@ def _assign_token(db_path, username, target_id, token_type):
         if not target or target["comp_status"] != "published" or not _target_open(target) or not _target_ready(target):
             raise ValueError("Pelimerkin voi käyttää vain avoimeen, pelattavaan kohteeseen.")
         if token_type not in ALLOWED_TOKENS[target["prediction_type"]]:
-            raise ValueError("Tämä pelimerkki ei sovi listan ennustemuotoon.")
+            raise ValueError("Tämä pelimerkki ei sovi listan veikkausmuotoon.")
         if conn.execute("SELECT 1 FROM token_assignments WHERE username=? AND target_id=? AND status='assigned'",(username,target_id)).fetchone():
             raise ValueError("Kohteessa on jo pelimerkki.")
         counts = _list_token_counts(target)
@@ -576,7 +576,7 @@ def render_user_competitions(db_path, username):
                     if not open_now:
                         continue
                     if not _target_ready(target):
-                        st.info("Ennusteen voi tehdä, kun osapuolet ovat tiedossa.")
+                        st.info("Veikkauksen voi tehdä, kun osapuolet ovat tiedossa.")
                         continue
 
                     if list_type in ("hockey_score", "football_score"):
@@ -632,10 +632,10 @@ def render_user_competitions(db_path, username):
                             with joker_cols[1]:
                                 joker_away = st.number_input("Jokeri · vieras", 0, 30, int(joker.get("away_goals", 0)), key=f"ja_{target['id']}")
                             prediction["joker_score"] = {"home_goals": int(joker_home), "away_goals": int(joker_away)}
-                    if st.button("Tallenna ennuste", key=f"save_prediction_{target['id']}", type="primary"):
+                    if st.button("Tallenna veikkaus", key=f"save_prediction_{target['id']}", type="primary"):
                         try:
                             _save_prediction(db_path, username, target["id"], prediction)
-                            st.toast("Ennuste tallennettu.")
+                            st.toast("Veikkaus tallennettu.")
                             st.rerun()
                         except ValueError as exc:
                             st.error(str(exc))
@@ -726,7 +726,7 @@ def render_admin_competitions(db_path, admin_username="admin"):
             st.markdown(f"**Lista {i+1}**")
             c1,c2=st.columns(2)
             lname=c1.text_input("Listan nimi",key=f"new_list_name_{i}",value=f"Lista {i+1}")
-            label=c2.selectbox("Ennustemuoto",list(PREDICTION_TYPES),key=f"new_list_type_{i}")
+            label=c2.selectbox("Veikkausmuoto",list(PREDICTION_TYPES),key=f"new_list_type_{i}")
             ptype=PREDICTION_TYPES[label]
             counts={kind:0 for kind in TOKEN_TYPES}
             for kind in ALLOWED_TOKENS[ptype]:
@@ -754,7 +754,7 @@ def render_admin_competitions(db_path, admin_username="admin"):
                             with st.form(f"edit_list_{lst['id']}"):
                                 c1,c2=st.columns(2)
                                 list_name=c1.text_input("Listan nimi",value=lst["name"],key=f"edit_name_{lst['id']}")
-                                type_label=c2.selectbox("Ennustemuoto",list(PREDICTION_TYPES),index=list(PREDICTION_TYPES.values()).index(lst["prediction_type"]),key=f"edit_type_{lst['id']}")
+                                type_label=c2.selectbox("Veikkausmuoto",list(PREDICTION_TYPES),index=list(PREDICTION_TYPES.values()).index(lst["prediction_type"]),key=f"edit_type_{lst['id']}")
                                 new_type=PREDICTION_TYPES[type_label]
                                 counts={kind:0 for kind in TOKEN_TYPES}
                                 for kind in ALLOWED_TOKENS[new_type]:
@@ -921,7 +921,7 @@ def render_admin_competition_results(db_path):
                 home, away = result_scores[choice]
             else:
                 if lst["prediction_type"] in ("hockey_multi", "football_multi"):
-                    st.caption("Syötä ottelun lopullinen tulos; Monivedon useat ennusteet pisteytetään sitä vasten.")
+                    st.caption("Syötä ottelun lopullinen tulos; Monivedon useat veikkaukset pisteytetään sitä vasten.")
                 result_cols = st.columns(2)
                 with result_cols[0]:
                     home = st.number_input(
