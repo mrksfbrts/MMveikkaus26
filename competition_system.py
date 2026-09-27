@@ -3,6 +3,7 @@
 This module deliberately uses separate tables and scoring from the legacy contest.
 """
 import json
+import html
 import sqlite3
 from datetime import datetime
 from zoneinfo import ZoneInfo
@@ -570,9 +571,9 @@ def render_user_competitions(db_path, username):
                     title_col, status_col = st.columns([5, 1])
                     with title_col:
                         st.markdown(f"**{title}**")
-                        st.caption(f"{start} (Helsinki)")
+                        st.caption(start)
                     with status_col:
-                        st.markdown("🟢 **AVOINNA**" if open_now else "🔒 **SULJETTU**")
+                        st.markdown("🟢 **AUKI**" if open_now else "🔒 **SULJETTU**")
 
                     with connect(db_path) as conn:
                         pred_row = conn.execute(
@@ -588,22 +589,29 @@ def render_user_competitions(db_path, username):
                     token = token_row["token_type"] if token_row else None
                     token_status = token_row["status"] if token_row else None
 
-                    summary_col, token_col = st.columns([3, 2])
-                    with summary_col:
-                        st.markdown(f"**Oma veikkaus:** {_prediction_text(list_type, saved, token)}")
-                    with token_col:
-                        if token:
-                            st.markdown(f"🎟️ **Pelimerkki tässä kohteessa: {TOKEN_LABELS[token]}**")
-                        elif any(token_counts.values()):
-                            st.caption("Pelimerkkiä ei ole käytetty tähän kohteeseen.")
-
-                    if target["result_home"] is not None:
-                        real = {"home_goals": target["result_home"], "away_goals": target["result_away"]}
-                        own = score_prediction(list_type, saved, real, token) if saved else 0
-                        st.caption(f"Tulos {real['home_goals']}–{real['away_goals']} · Oma pistemäärä: {own}")
-
                     allowed_token = ALLOWED_TOKENS[list_type][0] if ALLOWED_TOKENS[list_type] else None
-                    if allowed_token:
+                    display_prediction = _prediction_text(list_type, saved, token)
+                    st.markdown(
+                        '<div style="text-align:center;color:#94a3b8;font-size:0.78rem;'
+                        'font-weight:700;letter-spacing:.12em;margin-top:4px;">OMA VEIKKAUS</div>',
+                        unsafe_allow_html=True,
+                    )
+                    st.markdown(
+                        '<div style="text-align:center;color:#f8fafc;font-size:2rem;line-height:1.2;'
+                        'font-weight:800;margin:2px 0 8px;">'
+                        f'{html.escape(str(display_prediction))}</div>',
+                        unsafe_allow_html=True,
+                    )
+
+                    if token:
+                        st.markdown(
+                            '<div style="text-align:center;color:#facc15;font-size:.9rem;'
+                            'font-weight:700;margin:0 0 6px;">'
+                            f'🎟 {html.escape(TOKEN_LABELS[token].upper())} KÄYTÖSSÄ</div>',
+                            unsafe_allow_html=True,
+                        )
+
+                    if open_now and allowed_token:
                         token_names = {
                             "tuplaus": "Käytä tuplausta",
                             "harava": "Käytä haravaa",
@@ -611,13 +619,15 @@ def render_user_competitions(db_path, username):
                         }
                         token_selected = token == allowed_token
                         token_available = available.get(allowed_token, 0) > 0
-                        can_change_token = open_now and _target_ready(target) and token_status != "spent"
-                        token_choice = st.checkbox(
-                            token_names[allowed_token],
-                            value=token_selected,
-                            key=f"token_checkbox_{target['id']}",
-                            disabled=not can_change_token or (not token_selected and not token_available),
-                        )
+                        can_change_token = _target_ready(target) and token_status != "spent"
+                        token_col = st.columns([1, 2, 1])[1]
+                        with token_col:
+                            token_choice = st.checkbox(
+                                token_names[allowed_token],
+                                value=token_selected,
+                                key=f"token_checkbox_{target['id']}",
+                                disabled=not can_change_token or (not token_selected and not token_available),
+                            )
                         if can_change_token and token_choice != token_selected:
                             try:
                                 if token_choice:
@@ -629,71 +639,110 @@ def render_user_competitions(db_path, username):
                                 st.error(str(exc))
 
                     if not open_now:
+                        if target["result_home"] is not None:
+                            real = {"home_goals": target["result_home"], "away_goals": target["result_away"]}
+                            own = score_prediction(list_type, saved, real, token) if saved else 0
+                            result_col, points_col = st.columns([4, 1])
+                            with result_col:
+                                st.caption(f"Tulos {real['home_goals']}–{real['away_goals']}")
+                            with points_col:
+                                st.markdown(
+                                    f'<div style="text-align:right;font-size:1.1rem;font-weight:800;'
+                                    f'color:#22c55e;">{own} p</div>',
+                                    unsafe_allow_html=True,
+                                )
                         continue
                     if not _target_ready(target):
                         st.info("Veikkauksen voi tehdä, kun osapuolet ovat tiedossa.")
                         continue
 
                     if list_type in ("hockey_score", "football_score"):
-                        score_cols = st.columns([1, 0.18, 1])
-                        with score_cols[0]:
-                            home_goals = st.number_input("Kotimaalit", 0, 30, int(saved.get("home_goals", 0)), key=f"pred_h_{target['id']}")
-                        with score_cols[1]:
-                            st.markdown("## –")
-                        with score_cols[2]:
-                            away_goals = st.number_input("Vier maalit", 0, 30, int(saved.get("away_goals", 0)), key=f"pred_a_{target['id']}")
+                        entry_col = st.columns([1, 2.2, 1])[1]
+                        with entry_col:
+                            score_cols = st.columns([1, 0.2, 1])
+                            with score_cols[0]:
+                                home_goals = st.number_input("Kotimaalit", 0, 30, int(saved.get("home_goals", 0)), key=f"pred_h_{target['id']}")
+                            with score_cols[1]:
+                                st.markdown(
+                                    '<div style="text-align:center;font-size:1.4rem;padding-top:1.4rem;">–</div>',
+                                    unsafe_allow_html=True,
+                                )
+                            with score_cols[2]:
+                                away_goals = st.number_input("Vier maalit", 0, 30, int(saved.get("away_goals", 0)), key=f"pred_a_{target['id']}")
                         prediction = {"home_goals": int(home_goals), "away_goals": int(away_goals)}
                     elif list_type == "result_1x2":
                         options = ["1", "X", "2"]
                         if token == "harava":
-                            prediction = {"marks": st.multiselect(
-                                "Valitse kaksi merkkiä", options, default=saved.get("marks", ["1", "X"]),
-                                key=f"marks_{target['id']}", max_selections=2,
-                            )}
+                            entry_col = st.columns([1, 2, 1])[1]
+                            with entry_col:
+                                prediction = {"marks": st.multiselect(
+                                    "Valitse kaksi merkkiä", options, default=saved.get("marks", ["1", "X"]),
+                                    key=f"marks_{target['id']}", max_selections=2,
+                                )}
                         else:
-                            mark = st.radio(
-                                "1X2", options, index=options.index(saved.get("mark", "1")),
-                                horizontal=True, key=f"mark_{target['id']}",
-                            )
+                            entry_col = st.columns([1, 2, 1])[1]
+                            with entry_col:
+                                mark = st.radio(
+                                    "1X2", options, index=options.index(saved.get("mark", "1")),
+                                    horizontal=True, key=f"mark_{target['id']}",
+                                )
                             prediction = {"mark": mark}
                     else:
                         score_count = 4 if list_type == "hockey_multi" else 2
                         scores = []
-                        for score_idx in range(score_count):
-                            old_scores = saved.get("scores", [])
-                            old_score = old_scores[score_idx] if score_idx < len(old_scores) else {}
-                            score_cols = st.columns(2)
-                            with score_cols[0]:
-                                home_goals = st.number_input(
-                                    f"Tulos {score_idx + 1} · koti", 0, 30, int(old_score.get("home_goals", 0)),
-                                    key=f"mh_{target['id']}_{score_idx}",
-                                )
-                            with score_cols[1]:
-                                away_goals = st.number_input(
-                                    f"Tulos {score_idx + 1} · vieras", 0, 30, int(old_score.get("away_goals", 0)),
-                                    key=f"ma_{target['id']}_{score_idx}",
-                                )
-                            scores.append({"home_goals": int(home_goals), "away_goals": int(away_goals)})
-                        mark = st.radio(
-                            "Monivedon 1X2", ["1", "X", "2"], index=["1", "X", "2"].index(saved.get("mark", "1")),
-                            horizontal=True, key=f"mmark_{target['id']}",
-                        )
+                        entry_col = st.columns([1, 2.2, 1])[1]
+                        with entry_col:
+                            for score_idx in range(score_count):
+                                old_scores = saved.get("scores", [])
+                                old_score = old_scores[score_idx] if score_idx < len(old_scores) else {}
+                                score_cols = st.columns(2)
+                                with score_cols[0]:
+                                    home_goals = st.number_input(
+                                        f"Tulos {score_idx + 1} · koti", 0, 30, int(old_score.get("home_goals", 0)),
+                                        key=f"mh_{target['id']}_{score_idx}",
+                                    )
+                                with score_cols[1]:
+                                    away_goals = st.number_input(
+                                        f"Tulos {score_idx + 1} · vieras", 0, 30, int(old_score.get("away_goals", 0)),
+                                        key=f"ma_{target['id']}_{score_idx}",
+                                    )
+                                scores.append({"home_goals": int(home_goals), "away_goals": int(away_goals)})
+                            mark = st.radio(
+                                "Monivedon 1X2", ["1", "X", "2"], index=["1", "X", "2"].index(saved.get("mark", "1")),
+                                horizontal=True, key=f"mmark_{target['id']}",
+                            )
                         prediction = {"scores": scores, "mark": mark}
                         if token == "jokeri":
                             joker = saved.get("joker_score", {})
-                            joker_cols = st.columns(2)
-                            with joker_cols[0]:
-                                joker_home = st.number_input("Jokeri · koti", 0, 30, int(joker.get("home_goals", 0)), key=f"jh_{target['id']}")
-                            with joker_cols[1]:
-                                joker_away = st.number_input("Jokeri · vieras", 0, 30, int(joker.get("away_goals", 0)), key=f"ja_{target['id']}")
+                            with entry_col:
+                                joker_cols = st.columns(2)
+                                with joker_cols[0]:
+                                    joker_home = st.number_input("Jokeri · koti", 0, 30, int(joker.get("home_goals", 0)), key=f"jh_{target['id']}")
+                                with joker_cols[1]:
+                                    joker_away = st.number_input("Jokeri · vieras", 0, 30, int(joker.get("away_goals", 0)), key=f"ja_{target['id']}")
                             prediction["joker_score"] = {"home_goals": int(joker_home), "away_goals": int(joker_away)}
-                    if st.button("Tallenna veikkaus", key=f"save_prediction_{target['id']}", type="primary"):
+                    save_col = st.columns([1, 2, 1])[1]
+                    with save_col:
+                        save_prediction = st.button("Tallenna veikkaus", key=f"save_prediction_{target['id']}", type="primary", use_container_width=True)
+                    if save_prediction:
                         try:
                             _save_prediction(db_path, username, target["id"], prediction)
                             st.toast("Veikkaus tallennettu.")
                             st.rerun()
                         except ValueError as exc:
                             st.error(str(exc))
+                    if target["result_home"] is not None:
+                        real = {"home_goals": target["result_home"], "away_goals": target["result_away"]}
+                        own = score_prediction(list_type, saved, real, token) if saved else 0
+                        result_col, points_col = st.columns([4, 1])
+                        with result_col:
+                            st.caption(f"Tulos {real['home_goals']}–{real['away_goals']}")
+                        with points_col:
+                            st.markdown(
+                                f'<div style="text-align:right;font-size:1.1rem;font-weight:800;'
+                                f'color:#22c55e;">{own} p</div>',
+                                unsafe_allow_html=True,
+                            )
 
 
 def render_user_predictions(db_path, username):
