@@ -426,13 +426,13 @@ def _competition_standings(conn, competition_id):
     return lists,by_list,rankings
 
 
-def _maximum_prediction_points(prediction_type, token_type=None):
+def _maximum_prediction_points(prediction_type):
     if prediction_type == "hockey_score":
-        return 24 if token_type == "tuplaus" else 12
+        return 12
     if prediction_type == "football_score":
-        return 20 if token_type == "tuplaus" else 10
+        return 10
     if prediction_type == "result_1x2":
-        return 4 if token_type == "harava" else 5
+        return 5
     if prediction_type in ("hockey_multi", "football_multi"):
         return 11
     return 0
@@ -462,7 +462,7 @@ def _competition_performance(conn, competition_id):
                     (username, target["id"]),
                 ).fetchone()
                 token = token_row["token_type"] if token_row else None
-                maximum = _maximum_prediction_points(lst["prediction_type"], token)
+                maximum = _maximum_prediction_points(lst["prediction_type"])
                 prediction_row = conn.execute(
                     "SELECT prediction_data FROM user_predictions WHERE username=? AND target_id=?",
                     (username, target["id"]),

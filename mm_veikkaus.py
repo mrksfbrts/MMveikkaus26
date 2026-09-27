@@ -481,7 +481,7 @@ def render_ranking_row(i, name, points, pct, is_me=False):
     name_col = "#22c55e" if is_me else "#e2e8f0"
     weight = "700" if is_me else "500"
     safe_name = html.escape(str(name))
-    pct_text = f"{pct:.1f} %".replace(".", ",") if pct is not None else "–"
+    pct_text = f"{pct:.2f}".rstrip("0").rstrip(".").replace(".", ",") + " %" if pct is not None else "–"
     bar_pct = min(100, max(0, pct or 0))
     st.markdown(
         f'<div style="background:{bg};border:1px solid {border};border-radius:12px;'
@@ -1127,7 +1127,7 @@ if page == "Veikkaustilanne":
             if lists:
                 tabs = st.tabs(["Veikkauskisan kokonaistilanne"] + [lst["name"] for lst in lists])
                 with tabs[0]:
-                    st.caption("Kokonaispisteet sisältävät kaikkien listojen pisteet ja manuaaliset listabonukset. Prosentti lasketaan vain ratkenneiden kohteiden varsinaisista pisteistä suhteessa niiden pelimerkkikohtaisiin maksimipisteisiin; bonukset eivät vaikuta prosenttiin. Tasapisteissä sijoitus jaetaan.")
+                    st.caption("Kokonaispisteet sisältävät kaikkien listojen pisteet ja manuaaliset listabonukset. Prosentti lasketaan ratkenneiden kohteiden varsinaisista pisteistä suhteessa kohteiden normaaleihin teoreettisiin maksimipisteisiin; pelimerkit muuttavat pisteitä mutta eivät maksimia, eikä bonuksia lasketa prosenttiin. Tasapisteissä sijoitus jaetaan.")
                     for row in standings:
                         stats = performance["overall"][row["username"]]
                         pct = 100 * stats["points"] / stats["max_points"] if stats["max_points"] else None
@@ -1142,7 +1142,7 @@ if page == "Veikkaustilanne":
                 for index, lst in enumerate(lists, start=1):
                     with tabs[index]:
                         st.caption(f"{scoreboard['competition']['name']} · {lst['name']}")
-                        st.caption("Prosentti perustuu vain ratkenneisiin, perumattomiin kohteisiin; listabonukset eivät vaikuta siihen.")
+                        st.caption("Prosentti perustuu vain ratkenneisiin, perumattomiin kohteisiin ja niiden normaaliin maksimipistemäärään; pelimerkit eivät muuta maksimia eikä listabonuksia lasketa mukaan.")
                         scores = list_points.get(lst["id"], {})
                         list_standings = sorted(
                             ({"username": row["username"], "points": scores.get(row["username"], 0)} for row in standings),
