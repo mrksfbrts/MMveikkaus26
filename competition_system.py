@@ -467,8 +467,9 @@ def _competition_performance(conn, competition_id):
                     "SELECT prediction_data FROM user_predictions WHERE username=? AND target_id=?",
                     (username, target["id"]),
                 ).fetchone()
+                percentage_token = None if token == "tuplaus" else token
                 points = score_prediction(
-                    lst["prediction_type"], json.loads(prediction_row["prediction_data"]), result, token
+                    lst["prediction_type"], json.loads(prediction_row["prediction_data"]), result, percentage_token
                 ) if prediction_row else 0
                 per_list[username]["points"] += points
                 per_list[username]["max_points"] += maximum

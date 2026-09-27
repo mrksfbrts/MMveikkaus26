@@ -90,23 +90,40 @@ class CompetitionPercentageTests(unittest.TestCase):
             "jokeri", (5, 0),
         )
         board = cs.get_competition_standings(self.db, cid)
-        self.assertEqual(39, board["performance"]["overall"]["player"]["points"])
+        self.assertEqual(27, board["performance"]["overall"]["player"]["points"])
         self.assertEqual(28, board["performance"]["overall"]["player"]["max_points"])
         self.assertEqual(12, board["performance"]["lists"][lists[0]["id"]]["player"]["max_points"])
         self.assertEqual(5, board["performance"]["lists"][lists[1]["id"]]["player"]["max_points"])
         self.assertEqual(11, board["performance"]["lists"][lists[2]["id"]]["player"]["max_points"])
-        self.assertEqual(200.0, 100 * board["performance"]["lists"][lists[0]["id"]]["player"]["points"] / 12)
+        self.assertEqual(12, board["performance"]["lists"][lists[0]["id"]]["player"]["points"])
+        self.assertEqual(24, board["list_points"][lists[0]["id"]]["player"])
+        self.assertEqual(100.0, 100 * board["performance"]["lists"][lists[0]["id"]]["player"]["points"] / 12)
         self.assertEqual(80.0, 100 * board["performance"]["lists"][lists[1]["id"]]["player"]["points"] / 5)
 
         # A scheduled target without a result contributes nothing; saving the result changes the ratio immediately.
         pending_id = self.make_target(lists[0]["id"], None, None, {"home_goals": 2, "away_goals": 1}, future=True)
         before = cs.get_competition_standings(self.db, cid)["performance"]["overall"]["player"]
-        self.assertEqual((39, 28), (before["points"], before["max_points"]))
+        self.assertEqual((27, 28), (before["points"], before["max_points"]))
         with cs.connect(self.db) as conn:
             conn.execute("UPDATE competition_targets SET start_iso=? WHERE id=?", ((cs._now() - timedelta(minutes=1)).isoformat(), pending_id))
         cs._save_result(self.db, pending_id, 2, 1)
         after = cs.get_competition_standings(self.db, cid)["performance"]["overall"]["player"]
-        self.assertEqual((51, 40), (after["points"], after["max_points"]))
+        self.assertEqual((39, 40), (after["points"], after["max_points"]))
+
+    def test_tuplaus_does_not_double_percentage_points_on_partial_hit(self):
+        cid = cs._create_competition(
+            self.db, "Doubled partial", "",
+            [{"name": "Kiekko", "prediction_type": "hockey_score", "tuplaus": 1}],
+        )
+        with cs.connect(self.db) as conn:
+            conn.execute("UPDATE competitions SET status='published' WHERE id=?", (cid,))
+            list_id = conn.execute("SELECT id FROM competition_lists WHERE competition_id=?", (cid,)).fetchone()[0]
+        self.make_target(list_id, 3, 1, {"home_goals": 3, "away_goals": 1}, "tuplaus", (3, 2))
+        board = cs.get_competition_standings(self.db, cid)
+        stats = board["performance"]["overall"]["player"]
+        self.assertEqual({"points": 8, "max_points": 12}, stats)
+        self.assertEqual(16, board["standings"][0]["points"])
+        self.assertAlmostEqual(66.67, 100 * stats["points"] / stats["max_points"], places=2)
 
     def test_harava_and_result_veto_weight_to_fourteen_of_fifteen(self):
         cid = cs._create_competition(
