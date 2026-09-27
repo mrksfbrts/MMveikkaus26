@@ -426,16 +426,70 @@ def _competition_standings(conn, competition_id):
     return lists,by_list,rankings
 
 
+def _maximum_prediction_points(prediction_type, token_type=None):
+    if prediction_type == "hockey_score":
+        return 24 if token_type == "tuplaus" else 12
+    if prediction_type == "football_score":
+        return 20 if token_type == "tuplaus" else 10
+    if prediction_type == "result_1x2":
+        return 4 if token_type == "harava" else 5
+    if prediction_type in ("hockey_multi", "football_multi"):
+        return 11
+    return 0
+
+
+def _competition_performance(conn, competition_id):
+    """Raw points and attainable maximum from resolved, non-cancelled targets only."""
+    _, lists = _competition_data(conn, competition_id)
+    users = [row["username"] for row in conn.execute("SELECT username FROM users ORDER BY username").fetchall()]
+    overall = {username: {"points": 0, "max_points": 0} for username in users}
+    by_list = {}
+    for lst in lists:
+        per_list = {username: {"points": 0, "max_points": 0} for username in users}
+        targets = conn.execute(
+            """SELECT * FROM competition_targets
+               WHERE list_id=? AND status!='cancelled'
+                 AND result_home IS NOT NULL AND result_away IS NOT NULL
+               ORDER BY sort_order,id""",
+            (lst["id"],),
+        ).fetchall()
+        for target in targets:
+            result = {"home_goals": target["result_home"], "away_goals": target["result_away"]}
+            for username in users:
+                token_row = conn.execute(
+                    """SELECT token_type FROM token_assignments
+                       WHERE username=? AND target_id=? AND status IN ('assigned','spent')""",
+                    (username, target["id"]),
+                ).fetchone()
+                token = token_row["token_type"] if token_row else None
+                maximum = _maximum_prediction_points(lst["prediction_type"], token)
+                prediction_row = conn.execute(
+                    "SELECT prediction_data FROM user_predictions WHERE username=? AND target_id=?",
+                    (username, target["id"]),
+                ).fetchone()
+                points = score_prediction(
+                    lst["prediction_type"], json.loads(prediction_row["prediction_data"]), result, token
+                ) if prediction_row else 0
+                per_list[username]["points"] += points
+                per_list[username]["max_points"] += maximum
+                overall[username]["points"] += points
+                overall[username]["max_points"] += maximum
+        by_list[lst["id"]] = per_list
+    return {"overall": overall, "lists": by_list}
+
+
 def get_competition_standings(db_path, competition_id):
     """Return the selected competition and its overall/per-list scoreboards."""
     with connect(db_path) as conn:
         competition, lists = _competition_data(conn, competition_id)
         _, list_points, standings = _competition_standings(conn, competition_id)
+        performance = _competition_performance(conn, competition_id)
     return {
         "competition": dict(competition),
         "lists": [dict(lst) for lst in lists],
         "list_points": list_points,
         "standings": standings,
+        "performance": performance,
     }
 
 

@@ -481,6 +481,8 @@ def render_ranking_row(i, name, points, pct, is_me=False):
     name_col = "#22c55e" if is_me else "#e2e8f0"
     weight = "700" if is_me else "500"
     safe_name = html.escape(str(name))
+    pct_text = f"{pct:.1f} %".replace(".", ",") if pct is not None else "–"
+    bar_pct = min(100, max(0, pct or 0))
     st.markdown(
         f'<div style="background:{bg};border:1px solid {border};border-radius:12px;'
         f'padding:12px 14px;margin-bottom:8px;">'
@@ -489,12 +491,11 @@ def render_ranking_row(i, name, points, pct, is_me=False):
         f'<span style="color:#64748b;min-width:1.8rem;font-weight:700;font-size:1.05rem;">{i}.</span>'
         f'<span style="color:{name_col};font-weight:{weight};">{safe_name}</span>'
         f'</div>'
-        f'<span style="font-weight:700;color:#22c55e;font-size:1.15rem;">{points}</span>'
+        f'<span style="font-weight:700;color:#22c55e;font-size:1.05rem;">{points} p — {pct_text}</span>'
         f'</div>'
         f'<div style="display:flex;align-items:center;gap:8px;margin-top:7px;">'
         f'<div class="rank-bar-bg" style="flex:1;">'
-        f'<div class="rank-bar-fill" style="width:{int(pct)}%;"></div></div>'
-        f'<span style="font-size:0.75rem;color:#94a3b8;min-width:32px;text-align:right;">{int(pct)}%</span>'
+        f'<div class="rank-bar-fill" style="width:{bar_pct:.1f}%;"></div></div>'
         f'</div></div>',
         unsafe_allow_html=True,
     )
@@ -1122,13 +1123,14 @@ if page == "Veikkaustilanne":
             lists = scoreboard["lists"]
             standings = scoreboard["standings"]
             list_points = scoreboard["list_points"]
+            performance = scoreboard["performance"]
             if lists:
                 tabs = st.tabs(["Veikkauskisan kokonaistilanne"] + [lst["name"] for lst in lists])
                 with tabs[0]:
-                    st.caption("Kokonaispisteet sisältävät kaikkien listojen pisteet ja manuaaliset listabonukset. Tasapisteissä sijoitus jaetaan.")
-                    max_points = max((row["points"] for row in standings), default=0)
+                    st.caption("Kokonaispisteet sisältävät kaikkien listojen pisteet ja manuaaliset listabonukset. Prosentti lasketaan vain ratkenneiden kohteiden varsinaisista pisteistä suhteessa niiden pelimerkkikohtaisiin maksimipisteisiin; bonukset eivät vaikuta prosenttiin. Tasapisteissä sijoitus jaetaan.")
                     for row in standings:
-                        pct = 100 * row["points"] / max_points if max_points > 0 else 0
+                        stats = performance["overall"][row["username"]]
+                        pct = 100 * stats["points"] / stats["max_points"] if stats["max_points"] else None
                         render_ranking_row(
                             row["rank"], row["username"], row["points"], pct,
                             row["username"] == st.session_state.logged_in_user,
@@ -1140,18 +1142,19 @@ if page == "Veikkaustilanne":
                 for index, lst in enumerate(lists, start=1):
                     with tabs[index]:
                         st.caption(f"{scoreboard['competition']['name']} · {lst['name']}")
+                        st.caption("Prosentti perustuu vain ratkenneisiin, perumattomiin kohteisiin; listabonukset eivät vaikuta siihen.")
                         scores = list_points.get(lst["id"], {})
                         list_standings = sorted(
                             ({"username": row["username"], "points": scores.get(row["username"], 0)} for row in standings),
                             key=lambda row: (-row["points"], row["username"].casefold()),
                         )
-                        max_list_points = max((row["points"] for row in list_standings), default=0)
                         place = 0
                         previous_points = None
                         for position, row in enumerate(list_standings, start=1):
                             if previous_points is None or row["points"] != previous_points:
                                 place = position
-                            pct = 100 * row["points"] / max_list_points if max_list_points > 0 else 0
+                            stats = performance["lists"][lst["id"]][row["username"]]
+                            pct = 100 * stats["points"] / stats["max_points"] if stats["max_points"] else None
                             render_ranking_row(
                                 place, row["username"], row["points"], pct,
                                 row["username"] == st.session_state.logged_in_user,
