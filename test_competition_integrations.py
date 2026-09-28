@@ -25,6 +25,7 @@ class FakeStreamlit(types.ModuleType):
         self.labels = []
         self.output = []
         self.selectboxes = []
+        self.expanders = []
 
     def container(self, **kwargs):
         return contextlib.nullcontext()
@@ -44,6 +45,10 @@ class FakeStreamlit(types.ModuleType):
 
     def info(self, value, **kwargs):
         self.output.append(str(value))
+
+    def expander(self, label, expanded=False, **kwargs):
+        self.expanders.append((label, expanded))
+        return contextlib.nullcontext()
 
     def success(self, value, **kwargs):
         self.output.append(str(value))
@@ -73,10 +78,10 @@ def render_with(db_path, username, selected=None):
     return fake
 
 
-def render_all_with(db_path, selected=None):
+def render_all_with(db_path, username, selected=None):
     fake = FakeStreamlit(selected=selected)
     with patch.dict(sys.modules, {"streamlit": fake}):
-        cs.render_all_predictions(db_path)
+        cs.render_all_predictions(db_path, username)
     return fake
 
 
@@ -233,10 +238,11 @@ class CompetitionIntegrationTests(unittest.TestCase):
             {"scores": [{"home_goals": 0, "away_goals": 0}] * 4,
              "mark": "1", "joker_score": {"home_goals": 5, "away_goals": 0}},
         )
+        cs._save_prediction(
+            self.db, "second_player", target_ids[2],
+            {"scores": [{"home_goals": 1, "away_goals": 0}] * 4, "mark": "1"},
+        )
         with cs.connect(self.db) as conn:
-            conn.execute("UPDATE competition_targets SET start_iso=? WHERE id=?", ((now - timedelta(hours=1)).isoformat(), target_ids[0]))
-            conn.execute("UPDATE competition_targets SET result_home=3,result_away=1 WHERE id=?", (target_ids[0],))
-            conn.execute("UPDATE token_assignments SET status='spent' WHERE target_id=? AND status='assigned'", (target_ids[0],))
             # A legacy prediction with a unique marker must never appear in this view.
             conn.execute("CREATE TABLE predictions(username TEXT,match_id INTEGER,prediction TEXT,is_special TEXT)")
             conn.execute("INSERT INTO predictions VALUES('legacy_only_user',999,'LEGACY_SECRET','0')")
@@ -246,7 +252,22 @@ class CompetitionIntegrationTests(unittest.TestCase):
         with cs.connect(self.db) as conn:
             conn.execute("UPDATE competitions SET status='published' WHERE id=?", (other_id,))
 
-        ui = render_all_with(self.db, selected={"all_predictions_competition_selection": 1})
+        selection = {"all_predictions_competition_selection": 1}
+        open_ui = render_all_with(self.db, "player", selected=selection)
+        open_output = "\n".join(open_ui.output)
+        self.assertIn("Oma veikkaus", open_output)
+        self.assertIn("Muiden veikkaukset näkyvät kohteen sulkeuduttua.", open_output)
+        self.assertNotIn("second_player", open_output)
+        self.assertIn("🎟 Jokeri", open_output)  # the viewer's own token is visible
+        self.assertEqual([], open_ui.expanders)
+
+        # Once the target closes and a result is stored, all saved rows are behind a collapsed expander.
+        with cs.connect(self.db) as conn:
+            conn.execute("UPDATE competition_targets SET start_iso=? WHERE id=?", ((now - timedelta(hours=1)).isoformat(), target_ids[0]))
+            conn.execute("UPDATE competition_targets SET result_home=3,result_away=1 WHERE id=?", (target_ids[0],))
+            conn.execute("UPDATE token_assignments SET status='spent' WHERE target_id=? AND status='assigned'", (target_ids[0],))
+
+        ui = render_all_with(self.db, "player", selected=selection)
         output = "\n".join(ui.output)
         self.assertIn("### Kaikkien testikisa", ui.output)
         self.assertEqual(1, len(ui.selectboxes))
@@ -261,6 +282,8 @@ class CompetitionIntegrationTests(unittest.TestCase):
         self.assertIn("🎟 Jokeri", output)
         self.assertIn("Toteutunut tulos: 3–1", output)
         self.assertIn("24 p", output)
+        self.assertTrue(any(label == "▼ Näytä kaikkien veikkaukset (2)" and expanded is False
+                            for label, expanded in ui.expanders))
         self.assertNotIn("LEGACY_SECRET", output)
         self.assertNotIn("legacy_only_user", output)
 

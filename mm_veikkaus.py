@@ -1297,7 +1297,7 @@ if page == "Omat veikkaukset":
 if page == "Kaikkien veikkaukset":
     st.subheader("Kaikkien veikkaukset")
     st.divider()
-    render_all_predictions(DB_FILE)
+    render_all_predictions(DB_FILE, st.session_state.logged_in_user)
 
 # ====================== KISAINFON ======================
 if page == "Kisainfo":

@@ -825,7 +825,7 @@ def render_user_predictions(db_path, username):
                         st.caption(f"Tulos: {shown_result} · Pisteet: {points}")
 
 
-def render_all_predictions(db_path):
+def render_all_predictions(db_path, viewer_username):
     """Show saved predictions for every user in a published competition."""
     import streamlit as st
     with connect(db_path) as conn:
@@ -863,15 +863,18 @@ def render_all_predictions(db_path):
                 ).fetchall()
                 predictions_by_target = {}
                 for target in targets:
+                    viewer_only = comp["status"] == "published" and _target_open(target)
+                    visibility_filter = " AND p.username=?" if viewer_only else ""
+                    params = (target["id"], viewer_username) if viewer_only else (target["id"],)
                     rows = conn.execute(
-                        """SELECT p.username,p.prediction_data,a.token_type
+                        f"""SELECT p.username,p.prediction_data,a.token_type
                            FROM user_predictions p
                            LEFT JOIN token_assignments a
                              ON a.username=p.username AND a.target_id=p.target_id
                             AND a.status IN ('assigned','spent')
-                           WHERE p.target_id=?
+                           WHERE p.target_id=?{visibility_filter}
                            ORDER BY LOWER(p.username)""",
-                        (target["id"],),
+                        params,
                     ).fetchall()
                     predictions_by_target[target["id"]] = rows
 
@@ -882,7 +885,7 @@ def render_all_predictions(db_path):
             for row in targets:
                 target = dict(row)
                 open_now = _target_open(target) and comp["status"] == "published"
-                status = "🟢 AVOINNA" if open_now else "🔒 SULJETTU"
+                status = "🟢 AVOIN" if open_now else "🔒 SULJETTU"
                 if target["status"] == "cancelled":
                     status = "⛔ PERUTTU"
                 start = _parse_start(target["start_iso"]).strftime("%d.%m.%Y %H:%M")
@@ -906,20 +909,38 @@ def render_all_predictions(db_path):
                     rows = predictions_by_target[target["id"]]
                     if not rows:
                         st.info("Ei vielä tallennettuja veikkauksia tälle kohteelle.")
+                        if open_now:
+                            st.caption("Muiden veikkaukset näkyvät kohteen sulkeuduttua.")
                         continue
-                    for prediction_row in rows:
-                        prediction = json.loads(prediction_row["prediction_data"])
-                        token = prediction_row["token_type"]
-                        score = _prediction_text(lst["prediction_type"], prediction, token)
-                        points_text = ""
-                        if result_available:
-                            points = score_prediction(lst["prediction_type"], prediction, result, token)
-                            points_text = f" · **{points} p**"
-                        token_text = f" · 🎟 {TOKEN_LABELS[token]}" if token else ""
-                        st.markdown(
-                            f"**{html.escape(prediction_row['username'])}:** "
-                            f"{html.escape(str(score))}{token_text}{points_text}"
-                        )
+                    if open_now:
+                        own_rows = [r for r in rows if r["username"] == viewer_username]
+                        for prediction_row in own_rows:
+                            prediction = json.loads(prediction_row["prediction_data"])
+                            token = prediction_row["token_type"]
+                            score = _prediction_text(lst["prediction_type"], prediction, token)
+                            token_text = f" · 🎟 {TOKEN_LABELS[token]}" if token else ""
+                            st.markdown(
+                                f"**Oma veikkaus:** {html.escape(str(score))}{token_text}"
+                            )
+                        st.caption("Muiden veikkaukset näkyvät kohteen sulkeuduttua.")
+                        continue
+
+                    with st.expander(
+                        f"▼ Näytä kaikkien veikkaukset ({len(rows)})", expanded=False
+                    ):
+                        for prediction_row in rows:
+                            prediction = json.loads(prediction_row["prediction_data"])
+                            token = prediction_row["token_type"]
+                            score = _prediction_text(lst["prediction_type"], prediction, token)
+                            points_text = ""
+                            if result_available:
+                                points = score_prediction(lst["prediction_type"], prediction, result, token)
+                                points_text = f" · **{points} p**"
+                            token_text = f" · 🎟 {TOKEN_LABELS[token]}" if token else ""
+                            st.markdown(
+                                f"**{html.escape(prediction_row['username'])}:** "
+                                f"{html.escape(str(score))}{token_text}{points_text}"
+                            )
 
 
 def render_admin_competitions(db_path, admin_username="admin"):
