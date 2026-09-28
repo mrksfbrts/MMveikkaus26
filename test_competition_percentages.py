@@ -62,6 +62,40 @@ class CompetitionPercentageTests(unittest.TestCase):
         scoreboard = cs.get_competition_standings(self.db, cid)
         self.assertEqual(23, scoreboard["standings"][0]["points"])  # includes bonus; percent does not
 
+    def test_list_bonus_changes_ranking_points_but_not_percentage(self):
+        cid = cs._create_competition(
+            self.db, "Bonus and percentage", "",
+            [{"name": "Kiekko", "prediction_type": "hockey_score"}],
+        )
+        with cs.connect(self.db) as conn:
+            conn.execute("UPDATE competitions SET status='published' WHERE id=?", (cid,))
+            list_id = conn.execute(
+                "SELECT id FROM competition_lists WHERE competition_id=?", (cid,)
+            ).fetchone()[0]
+        self.make_target(
+            list_id, 3, 1, {"home_goals": 3, "away_goals": 1}, result=(3, 1)
+        )
+
+        before = cs.get_competition_standings(self.db, cid)
+        before_stats = before["performance"]["overall"]["player"]
+        before_percent = 100 * before_stats["points"] / before_stats["max_points"]
+        self.assertEqual(12, before["standings"][0]["points"])
+        self.assertEqual(100.0, before_percent)
+
+        with cs.connect(self.db) as conn:
+            conn.execute(
+                """INSERT INTO competition_bonuses
+                   (competition_id,list_id,username,points,reason,created_at,created_by)
+                   VALUES(?,?,?,?,?,?,?)""",
+                (cid, list_id, "player", 5, "Manuaalinen bonus", cs._stamp(), "admin"),
+            )
+
+        after = cs.get_competition_standings(self.db, cid)
+        after_stats = after["performance"]["overall"]["player"]
+        after_percent = 100 * after_stats["points"] / after_stats["max_points"]
+        self.assertEqual(17, after["standings"][0]["points"])
+        self.assertEqual(before_percent, after_percent)
+
     def test_one_resolved_half_score_is_fifty_percent(self):
         cid = cs._create_competition(self.db, "Half", "", [{"name": "Kiekko", "prediction_type": "hockey_score"}])
         with cs.connect(self.db) as conn:

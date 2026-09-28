@@ -1126,9 +1126,17 @@ if page == "Veikkaustilanne":
             list_points = scoreboard["list_points"]
             performance = scoreboard["performance"]
             if lists:
+                with st.popover("ⓘ Miten pisteet ja prosentti lasketaan?"):
+                    st.markdown(
+                        "**Kokonaispisteet:** kaikkien listojen pisteet ja manuaaliset listabonukset lasketaan yhteen. "
+                        "Tasapisteissä pelaajat jakavat saman sijoituksen.\n\n"
+                        "**Prosentti:** ratkenneiden, perumattomien kohteiden peruspisteet jaetaan niiden "
+                        "normaalien teoreettisten maksimipisteiden summalla. Ratkaisemattomat kohteet ja "
+                        "listabonukset eivät vaikuta prosenttiin. Tuplaus ei vaikuta prosenttiin; Haravan ja "
+                        "Jokerin pisteet huomioidaan niiden sääntöjen mukaan."
+                    )
                 tabs = st.tabs(["Veikkauskisan kokonaistilanne"] + [lst["name"] for lst in lists])
                 with tabs[0]:
-                    st.caption("Kokonaispisteet sisältävät kaikkien listojen pisteet ja manuaaliset listabonukset. Prosentti lasketaan ratkenneiden kohteiden peruspisteistä suhteessa kohteiden normaaleihin teoreettisiin maksimipisteisiin. Tuplaus ei vaikuta prosenttiin, Haravan ja Jokerin pisteet lasketaan sääntöjen mukaan, eikä bonuksia lasketa prosenttiin. Tasapisteissä sijoitus jaetaan.")
                     for row in standings:
                         stats = performance["overall"][row["username"]]
                         pct = 100 * stats["points"] / stats["max_points"] if stats["max_points"] else None
@@ -1143,7 +1151,6 @@ if page == "Veikkaustilanne":
                 for index, lst in enumerate(lists, start=1):
                     with tabs[index]:
                         st.caption(f"{scoreboard['competition']['name']} · {lst['name']}")
-                        st.caption("Prosentti perustuu vain ratkenneisiin, perumattomiin kohteisiin ja niiden normaaliin maksimipistemäärään. Tuplaus ei vaikuta prosenttiin, Haravan ja Jokerin pisteet lasketaan sääntöjen mukaan; listabonukset eivät vaikuta.")
                         scores = list_points.get(lst["id"], {})
                         list_standings = sorted(
                             ({"username": row["username"], "points": scores.get(row["username"], 0)} for row in standings),
