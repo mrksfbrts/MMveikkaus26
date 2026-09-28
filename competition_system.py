@@ -809,20 +809,44 @@ def render_user_predictions(db_path, username):
                     title_col, status_col = st.columns([5, 1])
                     with title_col:
                         st.markdown(f"**{_target_label(target)}**")
-                        st.caption(f"{_parse_start(target['start_iso']).strftime('%d.%m.%Y %H:%M')} (Helsinki)")
+                        st.caption(_parse_start(target["start_iso"]).strftime("%d.%m.%Y %H:%M"))
                     with status_col:
                         st.markdown(status)
-                    st.markdown(f"**Oma veikkaus:** {_prediction_text(lst['prediction_type'], prediction, token)}")
+                    st.markdown(
+                        '<div style="text-align:center;color:#94a3b8;font-size:.78rem;'
+                        'font-weight:700;letter-spacing:.12em;margin-top:8px;">OMA VEIKKAUS</div>'
+                        f'<div style="text-align:center;color:#f8fafc;font-size:2rem;line-height:1.2;'
+                        f'font-weight:800;margin:2px 0 6px;">'
+                        f'{html.escape(str(_prediction_text(lst["prediction_type"], prediction, token)))}</div>',
+                        unsafe_allow_html=True,
+                    )
                     if token:
-                        st.caption(f"Pelimerkki: {TOKEN_LABELS[token]}")
-                    if target["result_home"] is not None and target["status"] != "cancelled":
+                        st.markdown(
+                            '<div style="text-align:center;color:#facc15;font-size:.9rem;'
+                            'font-weight:700;margin:0 0 8px;">'
+                            f'🎟 {html.escape(TOKEN_LABELS[token].upper())}</div>',
+                            unsafe_allow_html=True,
+                        )
+                    if not is_open and target["result_home"] is not None and target["status"] != "cancelled":
                         result = {"home_goals": target["result_home"], "away_goals": target["result_away"]}
                         points = score_prediction(lst["prediction_type"], prediction, result, token)
                         if lst["prediction_type"] == "result_1x2":
                             shown_result = _outcome(result["home_goals"], result["away_goals"])
                         else:
                             shown_result = f"{result['home_goals']}–{result['away_goals']}"
-                        st.caption(f"Tulos: {shown_result} · Pisteet: {points}")
+                        st.markdown(
+                            '<div style="text-align:center;margin:16px 0 2px;">'
+                            '<div style="color:#94a3b8;font-size:.78rem;font-weight:700;'
+                            'letter-spacing:.12em;">TOTEUTUNUT TULOS</div>'
+                            f'<div style="color:#f8fafc;font-size:1.65rem;line-height:1.2;'
+                            f'font-weight:800;margin:2px 0 10px;">'
+                            f'{html.escape(str(shown_result))}</div>'
+                            '<div style="color:#94a3b8;font-size:.78rem;font-weight:700;'
+                            'letter-spacing:.12em;">SAADUT PISTEET</div>'
+                            f'<div style="color:#22c55e;font-size:1.8rem;line-height:1.2;'
+                            f'font-weight:900;margin-top:2px;">{points} p</div></div>',
+                            unsafe_allow_html=True,
+                        )
 
 
 def render_all_predictions(db_path, viewer_username):

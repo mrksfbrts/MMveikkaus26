@@ -142,9 +142,11 @@ class CompetitionIntegrationTests(unittest.TestCase):
         self.assertIn("### Testikisa", own.output)
         self.assertTrue(all(any(spec["name"] in item for item in own.output) for spec in specs))
         self.assertEqual(5, sum(1 for item in own.output if item in {s["name"] for s in specs}))
-        self.assertTrue(any("Tuplaus" in item for item in own.output))
-        self.assertTrue(any("Harava" in item for item in own.output))
-        self.assertTrue(any("Jokeri" in item for item in own.output))
+        self.assertTrue(any("TUPLAUS" in item for item in own.output))
+        self.assertTrue(any("HARAVA" in item for item in own.output))
+        self.assertTrue(any("JOKERI" in item for item in own.output))
+        self.assertFalse(any("TOTEUTUNUT TULOS" in item or "SAADUT PISTEET" in item for item in own.output))
+        self.assertFalse(any("(Helsinki)" in item for item in own.output))
         self.assertEqual(1, len(own.selectboxes))
         self.assertEqual([0, 1], own.selectboxes[0][1])  # finished competition excluded
 
@@ -167,8 +169,9 @@ class CompetitionIntegrationTests(unittest.TestCase):
         self.assertEqual(70, board["list_points"][lists[0]["id"]]["player"] + board["list_points"][lists[1]["id"]]["player"] + board["list_points"][lists[2]["id"]]["player"] + board["list_points"][lists[3]["id"]]["player"] + board["list_points"][lists[4]["id"]]["player"])
 
         own = render_with(self.db, "player")
-        self.assertTrue(any("Pisteet: 24" in item for item in own.output))
-        self.assertTrue(any("Pelimerkki: Tuplaus" in item for item in own.output))
+        self.assertTrue(any("SAADUT PISTEET" in item and "24 p" in item for item in own.output))
+        self.assertTrue(any("TOTEUTUNUT TULOS" in item for item in own.output))
+        self.assertTrue(any("🎟 TUPLAUS" in item for item in own.output))
 
         # Correcting a result through Admin updates the shared result columns and ranking immediately.
         target_id = targets[0]
