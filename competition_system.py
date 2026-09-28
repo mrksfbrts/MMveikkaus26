@@ -19,6 +19,11 @@ PREDICTION_TYPES = {
 TYPE_LABELS = {value: key for key, value in PREDICTION_TYPES.items()}
 TOKEN_TYPES = ("tuplaus", "harava", "jokeri")
 TOKEN_LABELS = {"tuplaus": "Tuplaus", "harava": "Harava", "jokeri": "Jokeri"}
+LEGACY_HALL_OF_FAME = (
+    {"username": "Markus", "points": 386},
+    {"username": "Tommi", "points": 354},
+    {"username": "Tekoäly", "points": 346},
+)
 ALLOWED_TOKENS = {
     "hockey_score": ("tuplaus",), "football_score": ("tuplaus",),
     "result_1x2": ("harava",), "hockey_multi": ("jokeri",),
@@ -115,6 +120,17 @@ def init_competition_db(db_path):
             created_by TEXT NOT NULL
         );
         CREATE INDEX IF NOT EXISTS idx_comp_bonus ON competition_bonuses(competition_id,username);
+        CREATE TABLE IF NOT EXISTS competition_hall_of_fame (
+            competition_id INTEGER NOT NULL,
+            competition_name TEXT NOT NULL,
+            username TEXT NOT NULL,
+            rank INTEGER NOT NULL,
+            points INTEGER NOT NULL,
+            percentage REAL,
+            ended_at TEXT NOT NULL,
+            PRIMARY KEY (competition_id,username)
+        );
+        CREATE INDEX IF NOT EXISTS idx_comp_hof_history ON competition_hall_of_fame(ended_at DESC,competition_id,rank);
         """)
         conn.execute("CREATE UNIQUE INDEX IF NOT EXISTS idx_comp_bonus_user_list ON competition_bonuses(competition_id,list_id,username)")
         columns = {row["name"] for row in conn.execute("PRAGMA table_info(token_assignments)")}
@@ -493,6 +509,102 @@ def get_competition_standings(db_path, competition_id):
         "standings": standings,
         "performance": performance,
     }
+
+
+def _snapshot_competition_hall_of_fame(conn, competition_id, ended_at=None):
+    """Persist the final top three, including every player tied at rank three."""
+    competition = conn.execute(
+        "SELECT id,name FROM competitions WHERE id=?", (competition_id,)
+    ).fetchone()
+    if not competition:
+        return
+    _, _, standings = _competition_standings(conn, competition_id)
+    performance = _competition_performance(conn, competition_id)["overall"]
+    stamp = ended_at or _stamp()
+    snapshots = []
+    for row in standings:
+        if row["rank"] > 3:
+            continue
+        stats = performance[row["username"]]
+        percentage = (100 * stats["points"] / stats["max_points"]
+                      if stats["max_points"] else None)
+        snapshots.append((
+            competition_id, competition["name"], row["username"], row["rank"],
+            row["points"], percentage, stamp,
+        ))
+    conn.executemany(
+        """INSERT OR IGNORE INTO competition_hall_of_fame
+           (competition_id,competition_name,username,rank,points,percentage,ended_at)
+           VALUES(?,?,?,?,?,?,?)""",
+        snapshots,
+    )
+
+
+def finish_competition(db_path, competition_id):
+    """Freeze the final Hall of Fame rows and mark a published competition finished."""
+    with connect(db_path) as conn:
+        row = conn.execute("SELECT status FROM competitions WHERE id=?", (competition_id,)).fetchone()
+        if not row or row["status"] != "published":
+            raise ValueError("Vain julkaistun kilpailun voi päättää.")
+        ended_at = _stamp()
+        _snapshot_competition_hall_of_fame(conn, competition_id, ended_at)
+        conn.execute(
+            "UPDATE competitions SET status='finished',updated_at=? WHERE id=?",
+            (ended_at, competition_id),
+        )
+
+
+def archive_competition(db_path, competition_id):
+    """Archive a finished competition while retaining its independent Hall of Fame snapshot."""
+    with connect(db_path) as conn:
+        row = conn.execute("SELECT status FROM competitions WHERE id=?", (competition_id,)).fetchone()
+        if not row or row["status"] != "finished":
+            raise ValueError("Vain päättyneen kilpailun voi arkistoida.")
+        ended_at = _stamp()
+        # Also captures competitions finished before Hall of Fame snapshots existed.
+        _snapshot_competition_hall_of_fame(conn, competition_id, ended_at)
+        conn.execute(
+            "UPDATE competitions SET status='archived',updated_at=? WHERE id=?",
+            (ended_at, competition_id),
+        )
+
+
+def get_competition_hall_of_fame(db_path):
+    """Return live published top threes and persistent ended-competition snapshots."""
+    with connect(db_path) as conn:
+        live_competitions = conn.execute(
+            "SELECT id,name,created_at FROM competitions WHERE status='published' ORDER BY sort_order,id DESC"
+        ).fetchall()
+        historical_rows = conn.execute(
+            """SELECT competition_id,competition_name,username,rank,points,percentage,ended_at
+               FROM competition_hall_of_fame
+               ORDER BY ended_at DESC,competition_id DESC,rank,LOWER(username)"""
+        ).fetchall()
+        live = []
+        for competition in live_competitions:
+            _, _, standings = _competition_standings(conn, competition["id"])
+            performance = _competition_performance(conn, competition["id"])["overall"]
+            players = []
+            for row in standings:
+                if row["rank"] > 3:
+                    continue
+                stats = performance[row["username"]]
+                percentage = (100 * stats["points"] / stats["max_points"]
+                              if stats["max_points"] else None)
+                players.append({**row, "percentage": percentage})
+            live.append({"id": competition["id"], "name": competition["name"], "players": players})
+
+    history = {}
+    for row in historical_rows:
+        entry = dict(row)
+        group = history.setdefault(entry["competition_id"], {
+            "competition_id": entry["competition_id"],
+            "competition_name": entry["competition_name"],
+            "ended_at": entry["ended_at"],
+            "players": [],
+        })
+        group["players"].append(entry)
+    return {"live": live, "history": list(history.values())}
 
 
 def get_rankable_competitions(db_path):
@@ -1088,10 +1200,10 @@ def render_admin_competitions(db_path, admin_username="admin"):
                                             [(comp['id'],list_choice[1],u,p,f"{p} pisteen sijoitusbonus · {list_choice[0]}",_stamp(),admin_username) for u,p in assignments if u])
                                     st.success("Bonukset tallennettu."); st.rerun()
                         if st.button("Päätä kilpailu",key=f"finish_{comp['id']}"):
-                            with connect(db_path) as conn: conn.execute("UPDATE competitions SET status='finished',updated_at=? WHERE id=?",(_stamp(),comp['id']))
+                            finish_competition(db_path, comp["id"])
                             st.rerun()
                     if status=="finished" and st.button("Arkistoi kilpailu",key=f"archive_{comp['id']}"):
-                        with connect(db_path) as conn: conn.execute("UPDATE competitions SET status='archived',updated_at=? WHERE id=?",(_stamp(),comp['id']))
+                        archive_competition(db_path, comp["id"])
                         st.rerun()
 
 

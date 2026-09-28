@@ -13,6 +13,8 @@ import io
 import streamlit.components.v1 as components
 from competition_system import (
     get_competition_standings,
+    get_competition_hall_of_fame,
+    LEGACY_HALL_OF_FAME,
     get_rankable_competitions,
     init_competition_db,
     render_admin_competition_results,
@@ -502,6 +504,8 @@ def render_ranking_row(i, name, points, pct, is_me=False):
     )
 
 def render_hof_card(medal, color, bg, name, points, pct):
+    pct_text = f"{pct:.1f}".rstrip("0").rstrip(".") + "%" if pct is not None else "–"
+    bar_pct = max(0, min(100, pct or 0))
     st.markdown(f"""
     <div style="background:{bg};border:1px solid {color};border-radius:14px;padding:16px 20px;margin-bottom:12px;max-width:480px;">
         <div style="display:flex;align-items:center;justify-content:space-between;">
@@ -512,8 +516,8 @@ def render_hof_card(medal, color, bg, name, points, pct):
             <div style="font-size:1.35rem;font-weight:700;color:#22c55e;">{points} p</div>
         </div>
         <div style="display:flex;align-items:center;gap:8px;margin-top:10px;">
-            <div class="rank-bar-bg" style="flex:1;"><div class="rank-bar-fill" style="width:{pct}%;"></div></div>
-            <span style="font-size:0.75rem;color:#94a3b8;min-width:32px;text-align:right;">{pct}%</span>
+            <div class="rank-bar-bg" style="flex:1;"><div class="rank-bar-fill" style="width:{bar_pct}%;"></div></div>
+            <span style="font-size:0.75rem;color:#94a3b8;min-width:42px;text-align:right;">{pct_text}</span>
         </div>
     </div>""", unsafe_allow_html=True)
 
@@ -1058,34 +1062,39 @@ if page == "Etusivu":
 if page == "Hall Of Fame":
     st.subheader("Hall Of Fame - veikkauskisojen kärkikolmikot")
     st.divider()
-    PAST = [{
+    LEGACY_PAST = [{
         "name": "MM26 -testikisa", "date": "Kesä 2026", "participants": 7, "max_points": 1048,
-        "standings": [{"nimi":"Markus","pisteet":386},{"nimi":"Tommi","pisteet":354},{"nimi":"Tekoäly","pisteet":346}]
+        "standings": [
+            {"nimi": row["username"], "pisteet": row["points"]}
+            for row in LEGACY_HALL_OF_FAME
+        ],
     }]
-    tabs = st.tabs(["Syyskuun palloilupaketti"] + [c["name"] for c in PAST])
+    hall_data = get_competition_hall_of_fame(DB_FILE)
+    tabs = st.tabs(
+        ["Käynnissä"] + [c["name"] for c in LEGACY_PAST]
+        + [f"{c['competition_name']} · {c['competition_id']}" for c in hall_data["history"]]
+    )
 
     with tabs[0]:
-        with st.spinner("Ladataan sijoituksia..."):
-            all_standings = get_all_standings()
-            standings = [e for e in all_standings if e.get("rank", 99) <= 3]
-        if not standings:
-            st.info("Ei vielä pelaajia.")
+        live_competitions = hall_data["live"]
+        if not live_competitions:
+            st.info("Ei käynnissä olevia kilpailuja.")
         else:
-            with get_db() as conn:
-                user_count = conn.execute("SELECT COUNT(*) as cnt FROM users").fetchone()["cnt"]
-            st.markdown(
-                f'<div style="color:#94a3b8;margin-bottom:14px;font-size:0.85rem;">Osallistujia: <b style="color:#e2e8f0;">{user_count}</b> · Ajankohta: <b style="color:#e2e8f0;">Syyskuu 2026</b></div>',
-                unsafe_allow_html=True
-            )
-            medal_map = {1: "🥇", 2: "🥈", 3: "🥉"}
-            color_map = {1: "#fbbf24", 2: "#94a3b8", 3: "#d97706"}
-            bg_map = {1: "rgba(251,191,36,0.10)", 2: "rgba(148,163,184,0.08)", 3: "rgba(217,119,6,0.08)"}
-            for e in standings:
-                r = e["rank"]
-                render_hof_card(medal_map.get(r, ""), color_map.get(r, "#94a3b8"), bg_map.get(r, "rgba(148,163,184,0.08)"),
-                                e["nimi"], e["pisteet"], e["pct"])
+            for competition in live_competitions:
+                st.markdown(f"### {competition['name']} · tämänhetkinen kärkikolmikko")
+                if not competition["players"]:
+                    st.info("Ei vielä pelaajia.")
+                    continue
+                for player in competition["players"]:
+                    rank = player["rank"]
+                    render_hof_card(
+                        f"{ {1: '🥇', 2: '🥈', 3: '🥉'}.get(rank, '')} {rank}. sija",
+                        {1: "#fbbf24", 2: "#94a3b8", 3: "#d97706"}.get(rank, "#94a3b8"),
+                        {1: "rgba(251,191,36,0.10)", 2: "rgba(148,163,184,0.08)", 3: "rgba(217,119,6,0.08)"}.get(rank, "rgba(148,163,184,0.08)"),
+                        player["username"], player["points"], player["percentage"],
+                    )
 
-    for idx, contest in enumerate(PAST):
+    for idx, contest in enumerate(LEGACY_PAST):
         with tabs[idx + 1]:
             st.markdown(
                 f'<div style="color:#94a3b8;margin-bottom:14px;font-size:0.85rem;">Osallistujia: <b style="color:#e2e8f0;">{contest["participants"]}</b> · Ajankohta: <b style="color:#e2e8f0;">{contest["date"]}</b></div>',
@@ -1096,6 +1105,19 @@ if page == "Hall Of Fame":
                 render_hof_card(["🥇", "🥈", "🥉"][i], ["#fbbf24", "#94a3b8", "#d97706"][i],
                                 ["rgba(251,191,36,0.10)", "rgba(148,163,184,0.08)", "rgba(217,119,6,0.08)"][i],
                                 e["nimi"], e["pisteet"], pct)
+    history_tab_offset = 1 + len(LEGACY_PAST)
+    for idx, contest in enumerate(hall_data["history"]):
+        with tabs[history_tab_offset + idx]:
+            ended = datetime.fromisoformat(contest["ended_at"]).strftime("%d.%m.%Y")
+            st.caption(f"Päättynyt {ended}")
+            for player in contest["players"]:
+                rank = player["rank"]
+                render_hof_card(
+                    f"{ {1: '🥇', 2: '🥈', 3: '🥉'}.get(rank, '')} {rank}. sija",
+                    {1: "#fbbf24", 2: "#94a3b8", 3: "#d97706"}.get(rank, "#94a3b8"),
+                    {1: "rgba(251,191,36,0.10)", 2: "rgba(148,163,184,0.08)", 3: "rgba(217,119,6,0.08)"}.get(rank, "rgba(148,163,184,0.08)"),
+                    player["username"], player["points"], player["percentage"],
+                )
 
 # ====================== VEIKKAUSKISA ======================
 if page == "VEIKKAUSKISA":

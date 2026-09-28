@@ -76,7 +76,7 @@ class DatabaseTests(unittest.TestCase):
             self.assertEqual("keep this", conn.execute("SELECT text FROM comments WHERE id=7").fetchone()[0])
             self.assertEqual(1, conn.execute("SELECT COUNT(*) FROM comment_reactions").fetchone()[0])
             tables = {row[0] for row in conn.execute("SELECT name FROM sqlite_master WHERE type='table'")}
-            self.assertTrue({"competitions", "competition_lists", "competition_targets", "user_predictions", "token_assignments", "competition_bonuses"}.issubset(tables))
+            self.assertTrue({"competitions", "competition_lists", "competition_targets", "user_predictions", "token_assignments", "competition_bonuses", "competition_hall_of_fame"}.issubset(tables))
 
     def test_multiple_tokens_are_individually_allocated_and_refund_on_early_cancel(self):
         cs.init_competition_db(self.db)
