@@ -73,6 +73,13 @@ def render_with(db_path, username, selected=None):
     return fake
 
 
+def render_all_with(db_path, selected=None):
+    fake = FakeStreamlit(selected=selected)
+    with patch.dict(sys.modules, {"streamlit": fake}):
+        cs.render_all_predictions(db_path)
+    return fake
+
+
 class CompetitionIntegrationTests(unittest.TestCase):
     def setUp(self):
         self.temp = tempfile.TemporaryDirectory()
@@ -188,6 +195,74 @@ class CompetitionIntegrationTests(unittest.TestCase):
         with cs.connect(self.db) as conn:
             self.assertEqual("spent", conn.execute("SELECT status FROM token_assignments WHERE target_id=?", (late_id,)).fetchone()[0])
             self.assertEqual(1, cs._available_tokens(conn, "player", lists[0])["tuplaus"])
+
+    def test_all_predictions_uses_competition_data_tokens_results_and_lists(self):
+        specs = [
+            {"name": "Jääkiekko", "prediction_type": "hockey_score", "tuplaus": 2},
+            {"name": "1X2", "prediction_type": "result_1x2", "harava": 1},
+            {"name": "Moniveto", "prediction_type": "hockey_multi", "jokeri": 1},
+        ]
+        cid = cs._create_competition(self.db, "Kaikkien testikisa", "Kuvaus", specs)
+        now = cs._now()
+        target_ids = []
+        with cs.connect(self.db) as conn:
+            conn.execute("INSERT INTO users(username,password_hash) VALUES('no_prediction_user','hash')")
+            lists = conn.execute(
+                "SELECT * FROM competition_lists WHERE competition_id=? ORDER BY sort_order", (cid,)
+            ).fetchall()
+            conn.execute("UPDATE competitions SET status='published' WHERE id=?", (cid,))
+            for order, lst in enumerate(lists):
+                cur = conn.execute(
+                    """INSERT INTO competition_targets
+                       (list_id,home,away,start_iso,sort_order,created_at,updated_at)
+                       VALUES(?,?,?,?,?,?,?)""",
+                    (lst["id"], "Home", "Away", (now + timedelta(days=2)).isoformat(),
+                     order, cs._stamp(), cs._stamp()),
+                )
+                target_ids.append(cur.lastrowid)
+
+        # Both users have saved hockey predictions; the third user has not.
+        cs._assign_token(self.db, "player", target_ids[0], "tuplaus")
+        cs._save_prediction(self.db, "player", target_ids[0], {"home_goals": 3, "away_goals": 1})
+        cs._save_prediction(self.db, "second_player", target_ids[0], {"home_goals": 2, "away_goals": 1})
+        cs._assign_token(self.db, "player", target_ids[1], "harava")
+        cs._save_prediction(self.db, "player", target_ids[1], {"marks": ["1", "X"]})
+        cs._assign_token(self.db, "player", target_ids[2], "jokeri")
+        cs._save_prediction(
+            self.db, "player", target_ids[2],
+            {"scores": [{"home_goals": 0, "away_goals": 0}] * 4,
+             "mark": "1", "joker_score": {"home_goals": 5, "away_goals": 0}},
+        )
+        with cs.connect(self.db) as conn:
+            conn.execute("UPDATE competition_targets SET start_iso=? WHERE id=?", ((now - timedelta(hours=1)).isoformat(), target_ids[0]))
+            conn.execute("UPDATE competition_targets SET result_home=3,result_away=1 WHERE id=?", (target_ids[0],))
+            conn.execute("UPDATE token_assignments SET status='spent' WHERE target_id=? AND status='assigned'", (target_ids[0],))
+            # A legacy prediction with a unique marker must never appear in this view.
+            conn.execute("CREATE TABLE predictions(username TEXT,match_id INTEGER,prediction TEXT,is_special TEXT)")
+            conn.execute("INSERT INTO predictions VALUES('legacy_only_user',999,'LEGACY_SECRET','0')")
+
+        # A second published competition exercises the same selection model.
+        other_id = cs._create_competition(self.db, "Muu julkaistu", "", [{"name": "Muu lista", "prediction_type": "hockey_score"}])
+        with cs.connect(self.db) as conn:
+            conn.execute("UPDATE competitions SET status='published' WHERE id=?", (other_id,))
+
+        ui = render_all_with(self.db, selected={"all_predictions_competition_selection": 1})
+        output = "\n".join(ui.output)
+        self.assertIn("### Kaikkien testikisa", ui.output)
+        self.assertEqual(1, len(ui.selectboxes))
+        self.assertIn("Jääkiekko", output)
+        self.assertIn("1X2", output)
+        self.assertIn("Moniveto", output)
+        self.assertIn("player", output)
+        self.assertIn("second_player", output)
+        self.assertNotIn("no_prediction_user", output)
+        self.assertIn("🎟 Tuplaus", output)
+        self.assertIn("🎟 Harava", output)
+        self.assertIn("🎟 Jokeri", output)
+        self.assertIn("Toteutunut tulos: 3–1", output)
+        self.assertIn("24 p", output)
+        self.assertNotIn("LEGACY_SECRET", output)
+        self.assertNotIn("legacy_only_user", output)
 
 
 if __name__ == "__main__":

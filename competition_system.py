@@ -825,6 +825,103 @@ def render_user_predictions(db_path, username):
                         st.caption(f"Tulos: {shown_result} · Pisteet: {points}")
 
 
+def render_all_predictions(db_path):
+    """Show saved predictions for every user in a published competition."""
+    import streamlit as st
+    with connect(db_path) as conn:
+        competitions = _all_competitions(conn, "published")
+    if not competitions:
+        st.info("Julkaistuja kilpailuja ei vielä ole.")
+        return
+
+    selected_index = 0
+    if len(competitions) > 1:
+        selected_index = st.selectbox(
+            "Kilpailu",
+            list(range(len(competitions))),
+            format_func=lambda index: competitions[index]["name"],
+            key="all_predictions_competition_selection",
+        )
+    comp = competitions[selected_index]
+    st.markdown(f"### {comp['name']}")
+    if comp["description"]:
+        st.caption(comp["description"])
+
+    with connect(db_path) as conn:
+        _, lists = _competition_data(conn, comp["id"])
+    if not lists:
+        st.info("Kilpailussa ei ole listoja.")
+        return
+
+    tabs = st.tabs([lst["name"] for lst in lists])
+    for index, lst in enumerate(lists):
+        with tabs[index]:
+            with connect(db_path) as conn:
+                targets = conn.execute(
+                    "SELECT * FROM competition_targets WHERE list_id=? ORDER BY sort_order,id",
+                    (lst["id"],),
+                ).fetchall()
+                predictions_by_target = {}
+                for target in targets:
+                    rows = conn.execute(
+                        """SELECT p.username,p.prediction_data,a.token_type
+                           FROM user_predictions p
+                           LEFT JOIN token_assignments a
+                             ON a.username=p.username AND a.target_id=p.target_id
+                            AND a.status IN ('assigned','spent')
+                           WHERE p.target_id=?
+                           ORDER BY LOWER(p.username)""",
+                        (target["id"],),
+                    ).fetchall()
+                    predictions_by_target[target["id"]] = rows
+
+            if not targets:
+                st.info("Listalla ei ole vielä kohteita.")
+                continue
+
+            for row in targets:
+                target = dict(row)
+                open_now = _target_open(target) and comp["status"] == "published"
+                status = "🟢 AVOINNA" if open_now else "🔒 SULJETTU"
+                if target["status"] == "cancelled":
+                    status = "⛔ PERUTTU"
+                start = _parse_start(target["start_iso"]).strftime("%d.%m.%Y %H:%M")
+                with st.container(border=True):
+                    title_col, status_col = st.columns([5, 1])
+                    with title_col:
+                        st.markdown(f"**{_target_label(target)}**")
+                        st.caption(start)
+                    with status_col:
+                        st.markdown(status)
+
+                    result_available = target["result_home"] is not None and target["status"] != "cancelled"
+                    if result_available:
+                        result = {"home_goals": target["result_home"], "away_goals": target["result_away"]}
+                        if lst["prediction_type"] == "result_1x2":
+                            shown_result = _outcome(result["home_goals"], result["away_goals"])
+                        else:
+                            shown_result = f"{result['home_goals']}–{result['away_goals']}"
+                        st.markdown(f"**Toteutunut tulos: {shown_result}**")
+
+                    rows = predictions_by_target[target["id"]]
+                    if not rows:
+                        st.info("Ei vielä tallennettuja veikkauksia tälle kohteelle.")
+                        continue
+                    for prediction_row in rows:
+                        prediction = json.loads(prediction_row["prediction_data"])
+                        token = prediction_row["token_type"]
+                        score = _prediction_text(lst["prediction_type"], prediction, token)
+                        points_text = ""
+                        if result_available:
+                            points = score_prediction(lst["prediction_type"], prediction, result, token)
+                            points_text = f" · **{points} p**"
+                        token_text = f" · 🎟 {TOKEN_LABELS[token]}" if token else ""
+                        st.markdown(
+                            f"**{html.escape(prediction_row['username'])}:** "
+                            f"{html.escape(str(score))}{token_text}{points_text}"
+                        )
+
+
 def render_admin_competitions(db_path, admin_username="admin"):
     import streamlit as st
     st.subheader("Veikkauskisat")

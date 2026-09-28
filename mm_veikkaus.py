@@ -17,6 +17,7 @@ from competition_system import (
     init_competition_db,
     render_admin_competition_results,
     render_admin_competitions,
+    render_all_predictions,
     render_user_competitions,
     render_user_predictions,
 )
@@ -1296,66 +1297,7 @@ if page == "Omat veikkaukset":
 if page == "Kaikkien veikkaukset":
     st.subheader("Kaikkien veikkaukset")
     st.divider()
-    all_lists, _ = load_all_match_lists()
-    if not all_lists:
-        st.info("Ei otteluita.")
-    else:
-        tabs = st.tabs([name for name, _ in all_lists])
-
-        def render_all(matches, list_name):
-            now = datetime.now(HELSINKI)
-            _, _, _, result_map, *_ = get_full_points_data()
-            closed = sum(1 for m in matches if now >= m["start"] or result_map.get(m["id"]))
-            summary_card(list_name, f"{closed}/{len(matches)}", "Näkymässä vain sulkeutuneet veikkauskohteet")
-            shown = False
-            me = st.session_state.logged_in_user
-            for m in matches:
-                real = result_map.get(m["id"])
-                if not (now >= m["start"] or real):
-                    continue
-                shown = True
-                preds = load_all_predictions_for_match(m["id"])
-                dbl = " 🔥 " if m["double"] else ""
-                st.markdown(f"### {m['home']} – {m['away']}{dbl}")
-                st.markdown(f"<p style='font-size:0.9rem;color:#94a3b8;margin-top:-6px;margin-bottom:10px;'>{m['aika']}</p>", unsafe_allow_html=True)
-                if real:
-                    st.markdown(
-                        f'<div style="background:linear-gradient(135deg,#1e293b,#0f172a);border:1px solid #22c55e;border-radius:10px;padding:7px 16px;margin-bottom:12px;display:inline-block;font-size:1.2rem;font-weight:700;color:#22c55e;">'
-                        f'{real["home_goals"]} – {real["away_goals"]}</div>',
-                        unsafe_allow_html=True
-                    )
-                else:
-                    st.markdown(
-                        '<div style="background:#0f172a;border:1px dashed #334155;border-radius:10px;padding:7px 16px;margin-bottom:12px;display:inline-block;font-size:1.15rem;color:#64748b;">–</div>',
-                        unsafe_allow_html=True
-                    )
-                if not preds:
-                    st.info("Ei vielä yhtään veikkausta tälle ottelulle.")
-                else:
-                    rows = []
-                    for u, p in preds.items():
-                        score = format_pred_text(p)
-                        pts = calculate_match_points(p, real, m["double"]) if real else -1
-                        rows.append({"username": u, "score": score, "points": pts})
-                    rows.sort(key=lambda x: (-x["points"], x["username"].lower()) if real else x["username"].lower())
-                    with st.expander(f"Veikkaukset ja pisteet ({len(rows)})", expanded=False):
-                        for r in rows:
-                            is_me = r["username"] == me
-                            pc = "#22c55e" if r["points"] >= 8 else "#fbbf24" if r["points"] >= 4 else "#94a3b8" if r["points"] > 0 else "#64748b"
-                            pts_html = f"<span style='color:{pc};font-weight:700;'>{r['points']} p</span>" if real else "<span style='color:#64748b;'>—</span>"
-                            st.markdown(f"""
-                            <div style="display:flex;align-items:center;background:#0f172a;padding:9px 12px;border-radius:8px;margin-bottom:5px;border:1px solid #1e293b;gap:14px;">
-                                <span style="color:{"#22c55e" if is_me else "#e2e8f0"};font-weight:{"700" if is_me else "400"};min-width:160px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;">{html.escape(r['username'])}</span>
-                                <span style="color:#cbd5e1;flex:1;">{html.escape(r['score'])}</span>
-                                <div style="min-width:48px;text-align:right;">{pts_html}</div>
-                            </div>""", unsafe_allow_html=True)
-                st.markdown("<div style='height:8px;'></div>", unsafe_allow_html=True)
-            if not shown:
-                st.info(f"Ei vielä yhtään suljettua ottelua listalla {list_name}.")
-
-        for i, (name, matches) in enumerate(all_lists):
-            with tabs[i]:
-                render_all(matches, f"Lista {i+1}")
+    render_all_predictions(DB_FILE)
 
 # ====================== KISAINFON ======================
 if page == "Kisainfo":
